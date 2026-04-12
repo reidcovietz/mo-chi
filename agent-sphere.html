@@ -42,13 +42,48 @@
     min-width: 200px; text-align: center; transition: opacity 0.4s;
     opacity: 0;
   }
+  #ws-indicator {
+    position: absolute; top: 24px; right: 28px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  #ws-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #888; transition: background 0.4s;
+  }
+  #ws-label { display: none; }
+  #response-panel {
+    position: absolute; right: 28px; top: 60px; bottom: 110px;
+    width: 280px; pointer-events: none;
+    display: flex; flex-direction: column;
+  }
+  #response-scroll {
+    flex: 1; overflow-y: auto; padding: 0 4px;
+    scrollbar-width: none;
+  }
+  #response-text {
+    color: rgba(180,220,255,0.75); font-size: 13px;
+    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
+  }
 </style>
 </head>
 <body>
 
 <canvas id="c"></canvas>
 <div id="label">Neural Agent Network</div>
-<div id="status-line" id="status-line"></div>
+<div id="status-line"></div>
+
+<!-- WS connection indicator -->
+<div id="ws-indicator">
+  <span id="ws-dot"></span>
+  <span id="ws-label">connecting</span>
+</div>
+
+<!-- Streaming response panel -->
+<div id="response-panel">
+  <div id="response-scroll">
+    <p id="response-text"></p>
+  </div>
+</div>
 
 <div id="ui">
   <input id="prompt-input" type="text" placeholder="Enter a prompt..." />
@@ -177,37 +212,116 @@ let STATE = 'idle'; // idle | flying | processing | fading
 let elapsed = 0;
 let lastTime = null;
 
-// Prompt sphere
-let promptX = -W * 0.55, promptY = 0, promptZ = 0;
 const PROMPT_TARGET = {x:0, y:0, z:0};
 const PROMPT_START  = {x: -(W*0.38), y: 20, z: -80};
-const FLY_DURATION  = 1.1; // seconds
-const PROCESS_DURATION = 4.0;
+const FLY_DURATION  = 1.1;
 const FADE_DURATION = 1.5;
 
-// Ripple: nodes activate outward from "entry point" on sphere
-function scheduleNodeActivations() {
-  // Entry point: left side of sphere closest to where prompt flies in
-  const entryVec = {x: -1, y: 0, z: 0}; // normalized
-  verts.forEach((v, i) => {
-    const vlen = Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
-    const dot = (v.x/vlen)*entryVec.x + (v.y/vlen)*entryVec.y + (v.z/vlen)*entryVec.z;
-    // dot = 1 means closest to entry, -1 is far side
-    // Delay: entry nodes first, far nodes last
-    const delay = (1 - dot) * 1.2 + Math.random() * 0.3;
-    nodeState[i].activateAt = delay;
-    nodeState[i].glowActive = false;
-    nodeState[i].glowT = 0;
-  });
+// Called by WS event or fallback demo mode
+function activateNode(id) {
+  if (id < 0 || id >= nodeState.length) return;
+  nodeState[id].glowActive = true;
 }
 
-function startAnimation() {
+function resetNodes() {
+  nodeState.forEach(ns => { ns.glowT = 0; ns.glowActive = false; });
+}
+
+function beginFly() {
   if (STATE !== 'idle') return;
   STATE = 'flying';
   elapsed = 0;
-  scheduleNodeActivations();
+  resetNodes();
   document.getElementById('send-btn').disabled = true;
   showStatus('transmitting...');
+}
+
+function beginFade() {
+  STATE = 'fading';
+  elapsed = 0;
+  showStatus('complete');
+  setTimeout(() => {
+    document.getElementById('send-btn').disabled = false;
+  }, FADE_DURATION * 1000);
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
+let ws = null;
+let wsConnected = false;
+const responseEl = document.getElementById('response-text');
+
+function connectWS() {
+  ws = new WebSocket('ws://localhost:8000/ws');
+
+  ws.onopen = () => {
+    wsConnected = true;
+    document.getElementById('ws-dot').style.background = '#44ff88';
+    document.getElementById('ws-dot').title = 'connected';
+  };
+
+  ws.onclose = () => {
+    wsConnected = false;
+    document.getElementById('ws-dot').style.background = '#ff4444';
+    document.getElementById('ws-dot').title = 'disconnected — retrying';
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => {
+    wsConnected = false;
+    document.getElementById('ws-dot').style.background = '#ff8800';
+    document.getElementById('ws-dot').title = 'error';
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.event === 'prompt_received') {
+      responseEl.textContent = '';
+      beginFly();
+    }
+
+    if (msg.event === 'node_activate') {
+      activateNode(msg.node_id);
+    }
+
+    if (msg.event === 'token') {
+      responseEl.textContent += msg.text;
+      responseEl.parentElement.scrollTop = responseEl.parentElement.scrollHeight;
+    }
+
+    if (msg.event === 'agent_done') {
+      beginFade();
+    }
+
+    if (msg.event === 'error') {
+      showStatus('error: ' + msg.message);
+      document.getElementById('send-btn').disabled = false;
+      STATE = 'idle';
+    }
+  };
+}
+
+connectWS();
+
+function startAnimation() {
+  const input = document.getElementById('prompt-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  if (wsConnected && ws.readyState === WebSocket.OPEN) {
+    // Real mode — server drives the animation
+    ws.send(JSON.stringify({ type: 'prompt', text }));
+  } else {
+    // Demo fallback — no server needed
+    beginFly();
+    showStatus('demo mode (no server)');
+    let demoT = 0;
+    const interval = setInterval(() => {
+      demoT++;
+      activateNode(demoT % nodeState.length);
+      if (demoT >= nodeState.length) { clearInterval(interval); beginFade(); }
+    }, 80);
+  }
 }
 
 function showStatus(msg) {
@@ -238,25 +352,16 @@ function drawFrame(timestamp) {
       showStatus('processing...');
     }
     if (STATE === 'processing') {
-      // Activate nodes based on their scheduled time
+      // Nodes are activated by WS events (activateNode); just advance glow timers
       nodeState.forEach(ns => {
-        if (!ns.glowActive && elapsed >= ns.activateAt) {
-          ns.glowActive = true;
-        }
         if (ns.glowActive) ns.glowT += dt;
       });
-      if (elapsed >= PROCESS_DURATION) {
-        STATE = 'fading';
-        elapsed = 0;
-        showStatus('complete');
-      }
     }
     if (STATE === 'fading') {
       if (elapsed >= FADE_DURATION) {
         STATE = 'idle';
         elapsed = 0;
-        nodeState.forEach(ns => { ns.glowT = 0; ns.glowActive = false; });
-        document.getElementById('send-btn').disabled = false;
+        resetNodes();
         hideStatus();
       }
     }
