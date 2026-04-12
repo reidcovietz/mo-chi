@@ -1,0 +1,16 @@
+[Unit]
+Description=mo-chi neural agent visualizer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/mo-chi
+EnvironmentFile=/home/pi/mo-chi/.env
+ExecStart=/home/pi/mo-chi/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

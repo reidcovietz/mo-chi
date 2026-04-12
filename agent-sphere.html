@@ -445,7 +445,8 @@ function appendToken(agent, text) {
 let ws = null, wsConnected = false;
 
 function connectWS() {
-  ws = new WebSocket('ws://localhost:8000/ws');
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${wsProto}//${location.host}/ws`);
   const dot = document.getElementById('ws-dot');
 
   ws.onopen  = () => { wsConnected = true;  dot.style.background = '#44ff88'; dot.title = 'connected'; };
