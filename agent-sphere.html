@@ -64,6 +64,53 @@
     color: rgba(180,220,255,0.75); font-size: 13px;
     line-height: 1.7; white-space: pre-wrap; word-break: break-word;
   }
+
+  /* Agent legend + proposer panels (left side) */
+  #agent-panel {
+    position: absolute; left: 28px; top: 60px; bottom: 110px;
+    width: 230px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .agent-card {
+    border-radius: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid;
+    display: flex; flex-direction: column; gap: 5px;
+    flex: 1; overflow: hidden;
+  }
+  .agent-card-header {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .agent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .agent-name {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    opacity: 0.7;
+  }
+  .agent-output {
+    font-size: 11px; line-height: 1.6; opacity: 0.55;
+    overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+    scrollbar-width: none; flex: 1;
+  }
+  /* Per-agent accent colors */
+  .agent-analytical { border-color: rgba(80,140,255,0.6); }
+  .agent-analytical .agent-dot { background: #508cff; }
+  .agent-analytical .agent-name { color: #508cff; }
+  .agent-analytical .agent-output { color: rgba(140,180,255,0.7); }
+
+  .agent-creative { border-color: rgba(200,80,255,0.6); }
+  .agent-creative .agent-dot { background: #c850ff; }
+  .agent-creative .agent-name { color: #c850ff; }
+  .agent-creative .agent-output { color: rgba(210,150,255,0.7); }
+
+  .agent-critic { border-color: rgba(255,140,50,0.6); }
+  .agent-critic .agent-dot { background: #ff8c32; }
+  .agent-critic .agent-name { color: #ff8c32; }
+  .agent-critic .agent-output { color: rgba(255,190,130,0.7); }
+
+  /* Response panel label */
+  #response-label {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: rgba(80,230,150,0.5); margin-bottom: 6px;
+  }
 </style>
 </head>
 <body>
@@ -78,8 +125,40 @@
   <span id="ws-label">connecting</span>
 </div>
 
-<!-- Streaming response panel -->
+<!-- Layer 1 proposer panels (left) -->
+<div id="agent-panel">
+  <div class="agent-card agent-analytical">
+    <div class="agent-card-header">
+      <span class="agent-dot"></span>
+      <span class="agent-name">Analytical</span>
+    </div>
+    <div class="agent-output" id="prop-analytical-scroll">
+      <p id="prop-analytical"></p>
+    </div>
+  </div>
+  <div class="agent-card agent-creative">
+    <div class="agent-card-header">
+      <span class="agent-dot"></span>
+      <span class="agent-name">Creative</span>
+    </div>
+    <div class="agent-output" id="prop-creative-scroll">
+      <p id="prop-creative"></p>
+    </div>
+  </div>
+  <div class="agent-card agent-critic">
+    <div class="agent-card-header">
+      <span class="agent-dot"></span>
+      <span class="agent-name">Critic</span>
+    </div>
+    <div class="agent-output" id="prop-critic-scroll">
+      <p id="prop-critic"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Layer 2 aggregator response panel (right) -->
 <div id="response-panel">
+  <div id="response-label">&#9632; Aggregator</div>
   <div id="response-scroll">
     <p id="response-text"></p>
   </div>
@@ -167,13 +246,27 @@ const SPHERE_R = 180;
 const { verts, edges } = buildGeodesic(SPHERE_R, 2);
 const N = verts.length;
 
+// ─── Agent color palette ─────────────────────────────────────────────────────
+const AGENT_COLORS = {
+  analytical: { core: [80,  140, 255], halo: [40,  80,  200] },
+  creative:   { core: [200, 80,  255], halo: [130, 40,  200] },
+  critic:     { core: [255, 140, 50 ], halo: [200, 80,  20 ] },
+  aggregator: { core: [80,  230, 150], halo: [40,  170, 100] },
+  default:    { core: [100, 140, 200], halo: [60,  90,  160] },
+};
+
+function agentColor(agent, alpha, part = 'core') {
+  const c = (AGENT_COLORS[agent] || AGENT_COLORS.default)[part];
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
+
 // ─── Node state ──────────────────────────────────────────────────────────────
-const nodeState = verts.map((v, i) => ({
-  phaseOff: Math.random() * Math.PI * 2,
-  glowT: 0,       // 0=off, increases when glowing
+const nodeState = verts.map(() => ({
+  phaseOff:   Math.random() * Math.PI * 2,
+  glowT:      0,
   glowActive: false,
-  activateAt: 0,  // elapsed time when this node activates
-  dist: Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z) // all ~= SPHERE_R
+  agent:      'default',
+  layer:      0,
 }));
 
 // ─── Camera / Projection ─────────────────────────────────────────────────────
@@ -218,13 +311,20 @@ const FLY_DURATION  = 1.1;
 const FADE_DURATION = 1.5;
 
 // Called by WS event or fallback demo mode
-function activateNode(id) {
+function activateNode(id, agent = 'default', layer = 0) {
   if (id < 0 || id >= nodeState.length) return;
   nodeState[id].glowActive = true;
+  nodeState[id].agent = agent;
+  nodeState[id].layer = layer;
 }
 
 function resetNodes() {
-  nodeState.forEach(ns => { ns.glowT = 0; ns.glowActive = false; });
+  nodeState.forEach(ns => {
+    ns.glowT = 0;
+    ns.glowActive = false;
+    ns.agent = 'default';
+    ns.layer = 0;
+  });
 }
 
 function beginFly() {
@@ -277,16 +377,32 @@ function connectWS() {
 
     if (msg.event === 'prompt_received') {
       responseEl.textContent = '';
+      clearProposerPanels();
       beginFly();
     }
 
+    if (msg.event === 'layer_start') {
+      const names = (msg.agents || []).join(' · ');
+      showStatus(`layer ${msg.layer}: ${names}`);
+    }
+
     if (msg.event === 'node_activate') {
-      activateNode(msg.node_id);
+      activateNode(msg.node_id, msg.agent, msg.layer);
     }
 
     if (msg.event === 'token') {
-      responseEl.textContent += msg.text;
-      responseEl.parentElement.scrollTop = responseEl.parentElement.scrollHeight;
+      if (msg.layer === 2 || msg.agent === 'aggregator') {
+        // Layer 2 aggregator → main response panel
+        responseEl.textContent += msg.text;
+        responseEl.parentElement.scrollTop = responseEl.parentElement.scrollHeight;
+      } else {
+        // Layer 1 proposers → their individual mini panels
+        appendProposerToken(msg.agent, msg.text);
+      }
+    }
+
+    if (msg.event === 'layer_done') {
+      if (msg.layer === 1) showStatus('layer 2: aggregating...');
     }
 
     if (msg.event === 'agent_done') {
@@ -309,19 +425,44 @@ function startAnimation() {
   if (!text) return;
 
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
-    // Real mode — server drives the animation
     ws.send(JSON.stringify({ type: 'prompt', text }));
   } else {
-    // Demo fallback — no server needed
+    // Demo fallback — cycle through agent sectors without a server
     beginFly();
     showStatus('demo mode (no server)');
-    let demoT = 0;
+    clearProposerPanels();
+    responseEl.textContent = '';
+    const demoAgents = [
+      { name: 'analytical', nodes: Array.from({length:11},(_,i)=>i),    layer:1 },
+      { name: 'creative',   nodes: Array.from({length:11},(_,i)=>i+11), layer:1 },
+      { name: 'critic',     nodes: Array.from({length:10},(_,i)=>i+22), layer:1 },
+      { name: 'aggregator', nodes: Array.from({length:10},(_,i)=>i+32), layer:2 },
+    ];
+    let di = 0;
     const interval = setInterval(() => {
-      demoT++;
-      activateNode(demoT % nodeState.length);
-      if (demoT >= nodeState.length) { clearInterval(interval); beginFade(); }
-    }, 80);
+      const ag = demoAgents[Math.floor(di / 3) % demoAgents.length];
+      const nodeIdx = di % ag.nodes.length;
+      activateNode(ag.nodes[nodeIdx], ag.name, ag.layer);
+      di++;
+      if (di >= 42) { clearInterval(interval); beginFade(); }
+    }, 70);
   }
+}
+
+// ─── Proposer mini-panels ─────────────────────────────────────────────────────
+function clearProposerPanels() {
+  ['analytical', 'creative', 'critic'].forEach(name => {
+    const p = document.getElementById(`prop-${name}`);
+    if (p) p.textContent = '';
+  });
+}
+
+function appendProposerToken(agent, text) {
+  const el = document.getElementById(`prop-${agent}`);
+  if (!el) return;
+  el.textContent += text;
+  const scroll = document.getElementById(`prop-${agent}-scroll`);
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
 }
 
 function showStatus(msg) {
@@ -389,7 +530,9 @@ function drawFrame(timestamp) {
       const g = Math.min(nsA.glowT, nsB.glowT);
       const intensity = Math.min(g / 0.5, 1) * fadeF;
       const pulse = 0.4 + Math.sin(timestamp*0.003 + nsA.phaseOff) * 0.3;
-      c.strokeStyle = `rgba(80,130,255,${intensity * pulse * 0.7})`;
+      // Use the color of whichever agent is "more processed" (higher glowT)
+      const edgeAgent = nsA.glowT >= nsB.glowT ? nsA.agent : nsB.agent;
+      c.strokeStyle = agentColor(edgeAgent, intensity * pulse * 0.7, 'core');
       c.lineWidth = 1.2 * pa.scale * 200 / SPHERE_R;
     } else {
       const depth = (pa.z + pb.z) / 2;
@@ -418,12 +561,12 @@ function drawFrame(timestamp) {
       const pulse = 0.7 + Math.sin(ns.glowT * 4 + ns.phaseOff) * 0.3;
       const alpha = progress * pulse * fadeF;
 
-      // Outer halo
+      // Outer halo — agent color
       const haloR = r * (3.5 + Math.sin(ns.glowT*3 + ns.phaseOff)*0.5);
       const halo = c.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
-      halo.addColorStop(0, `rgba(100,160,255,${alpha * 0.6})`);
-      halo.addColorStop(0.4, `rgba(70,120,230,${alpha * 0.25})`);
-      halo.addColorStop(1, `rgba(50,80,200,0)`);
+      halo.addColorStop(0,   agentColor(ns.agent, alpha * 0.65, 'core'));
+      halo.addColorStop(0.4, agentColor(ns.agent, alpha * 0.25, 'halo'));
+      halo.addColorStop(1,   agentColor(ns.agent, 0,            'halo'));
       c.fillStyle = halo;
       c.beginPath();
       c.arc(p.sx, p.sy, haloR, 0, Math.PI*2);
@@ -431,9 +574,10 @@ function drawFrame(timestamp) {
 
       // Core node
       const grad = c.createRadialGradient(p.sx-r*0.3, p.sy-r*0.3, 0, p.sx, p.sy, r);
-      grad.addColorStop(0, `rgba(200,230,255,${alpha})`);
-      grad.addColorStop(0.5, `rgba(100,160,255,${alpha * 0.9})`);
-      grad.addColorStop(1, `rgba(60,100,220,${alpha * 0.7})`);
+      grad.addColorStop(0,   agentColor(ns.agent, alpha,        'core').replace('rgba','rgba').replace(/,[\d.]+\)/, `,${alpha})`));
+      grad.addColorStop(0,   `rgba(230,240,255,${alpha})`);
+      grad.addColorStop(0.5, agentColor(ns.agent, alpha * 0.9,  'core'));
+      grad.addColorStop(1,   agentColor(ns.agent, alpha * 0.7,  'halo'));
       c.fillStyle = grad;
       c.beginPath();
       c.arc(p.sx, p.sy, r * (1 + progress * 0.3), 0, Math.PI*2);
