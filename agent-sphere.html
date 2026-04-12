@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Neural Agent Sphere</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #07080f; overflow: hidden; font-family: 'Courier New', monospace; }
+
+  #ui {
+    position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 10;
+  }
+  #prompt-input {
+    width: 420px; padding: 13px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; color: #ddeeff;
+    font-size: 14px; font-family: 'Courier New', monospace;
+    outline: none; transition: border-color 0.2s;
+  }
+  #prompt-input:focus { border-color: rgba(80,220,80,0.45); }
+  #send-btn {
+    padding: 13px 26px;
+    background: rgba(60,200,60,0.12);
+    border: 1px solid rgba(60,200,60,0.4);
+    border-radius: 10px; color: #88ff88;
+    cursor: pointer; font-family: 'Courier New', monospace;
+    font-size: 13px; letter-spacing: 1px; transition: all 0.2s;
+  }
+  #send-btn:hover { background: rgba(60,200,60,0.22); }
+  #send-btn:disabled { opacity: 0.4; cursor: default; }
+
+  #label {
+    position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+    color: rgba(180,210,255,0.25); font-size: 11px; letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+  #status-line {
+    position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+    color: rgba(120,200,120,0.5); font-size: 11px; letter-spacing: 2px;
+    min-width: 200px; text-align: center; transition: opacity 0.4s;
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="label">Neural Agent Network</div>
+<div id="status-line" id="status-line"></div>
+
+<div id="ui">
+  <input id="prompt-input" type="text" placeholder="Enter a prompt..." />
+  <button id="send-btn">SEND</button>
+</div>
+
+<script>
+// ─── Canvas & Context ────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx2d = canvas.getContext('2d');
+
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+
+// ─── Math helpers ────────────────────────────────────────────────────────────
+const v3 = (x,y,z) => ({x,y,z});
+const lerp = (a,b,t) => a + (b-a)*t;
+const easeInOut = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+const easeOutCubic = t => 1 - Math.pow(1-t, 3);
+
+// ─── Geodesic Sphere (Icosahedron subdivided) ────────────────────────────────
+function buildGeodesic(radius, subdivisions) {
+  const phi = (1 + Math.sqrt(5)) / 2;
+  // 12 icosahedron base vertices
+  let verts = [
+    [-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],
+    [0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],
+    [phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]
+  ].map(([x,y,z]) => {
+    const len = Math.sqrt(x*x+y*y+z*z);
+    return {x:x/len, y:y/len, z:z/len};
+  });
+
+  // 20 icosahedron faces
+  let faces = [
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
+  ];
+
+  const midCache = new Map();
+  function getMid(a, b) {
+    const key = Math.min(a,b)*10000 + Math.max(a,b);
+    if (midCache.has(key)) return midCache.get(key);
+    const v = verts[a], w = verts[b];
+    const mx = (v.x+w.x)/2, my = (v.y+w.y)/2, mz = (v.z+w.z)/2;
+    const len = Math.sqrt(mx*mx+my*my+mz*mz);
+    verts.push({x:mx/len, y:my/len, z:mz/len});
+    const idx = verts.length - 1;
+    midCache.set(key, idx);
+    return idx;
+  }
+
+  for (let s = 0; s < subdivisions; s++) {
+    const next = [];
+    for (const [a,b,c] of faces) {
+      const ab = getMid(a,b), bc = getMid(b,c), ca = getMid(c,a);
+      next.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]);
+    }
+    faces = next;
+  }
+
+  // Extract unique edges
+  const edgeSet = new Set();
+  const edges = [];
+  for (const [a,b,c] of faces) {
+    [[a,b],[b,c],[c,a]].forEach(([i,j]) => {
+      const key = Math.min(i,j)*100000 + Math.max(i,j);
+      if (!edgeSet.has(key)) { edgeSet.add(key); edges.push([i,j]); }
+    });
+  }
+
+  return {
+    verts: verts.map(v => ({x:v.x*radius, y:v.y*radius, z:v.z*radius})),
+    edges
+  };
+}
+
+const SPHERE_R = 180;
+const { verts, edges } = buildGeodesic(SPHERE_R, 2);
+const N = verts.length;
+
+// ─── Node state ──────────────────────────────────────────────────────────────
+const nodeState = verts.map((v, i) => ({
+  phaseOff: Math.random() * Math.PI * 2,
+  glowT: 0,       // 0=off, increases when glowing
+  glowActive: false,
+  activateAt: 0,  // elapsed time when this node activates
+  dist: Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z) // all ~= SPHERE_R
+}));
+
+// ─── Camera / Projection ─────────────────────────────────────────────────────
+let camAngleY = 0, camAngleX = 0.18;
+const CAM_DIST = 520;
+const FOV_SCALE = 600;
+
+function project(x, y, z) {
+  // Rotate world
+  const cosY = Math.cos(camAngleY), sinY = Math.sin(camAngleY);
+  const cosX = Math.cos(camAngleX), sinX = Math.sin(camAngleX);
+
+  // Y-axis rotation
+  const rx = x * cosY - z * sinY;
+  const ry = y;
+  const rz = x * sinY + z * cosY;
+
+  // X-axis rotation
+  const fx = rx;
+  const fy = ry * cosX - rz * sinX;
+  const fz = ry * sinX + rz * cosX;
+
+  const d = CAM_DIST + fz;
+  if (d < 1) return null;
+  const scale = FOV_SCALE / d;
+  return {
+    sx: W/2 + fx * scale,
+    sy: H/2 - fy * scale,
+    scale,
+    z: fz
+  };
+}
+
+// ─── Animation state ─────────────────────────────────────────────────────────
+let STATE = 'idle'; // idle | flying | processing | fading
+let elapsed = 0;
+let lastTime = null;
+
+// Prompt sphere
+let promptX = -W * 0.55, promptY = 0, promptZ = 0;
+const PROMPT_TARGET = {x:0, y:0, z:0};
+const PROMPT_START  = {x: -(W*0.38), y: 20, z: -80};
+const FLY_DURATION  = 1.1; // seconds
+const PROCESS_DURATION = 4.0;
+const FADE_DURATION = 1.5;
+
+// Ripple: nodes activate outward from "entry point" on sphere
+function scheduleNodeActivations() {
+  // Entry point: left side of sphere closest to where prompt flies in
+  const entryVec = {x: -1, y: 0, z: 0}; // normalized
+  verts.forEach((v, i) => {
+    const vlen = Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
+    const dot = (v.x/vlen)*entryVec.x + (v.y/vlen)*entryVec.y + (v.z/vlen)*entryVec.z;
+    // dot = 1 means closest to entry, -1 is far side
+    // Delay: entry nodes first, far nodes last
+    const delay = (1 - dot) * 1.2 + Math.random() * 0.3;
+    nodeState[i].activateAt = delay;
+    nodeState[i].glowActive = false;
+    nodeState[i].glowT = 0;
+  });
+}
+
+function startAnimation() {
+  if (STATE !== 'idle') return;
+  STATE = 'flying';
+  elapsed = 0;
+  scheduleNodeActivations();
+  document.getElementById('send-btn').disabled = true;
+  showStatus('transmitting...');
+}
+
+function showStatus(msg) {
+  const el = document.getElementById('status-line');
+  el.textContent = msg;
+  el.style.opacity = '1';
+}
+function hideStatus() {
+  const el = document.getElementById('status-line');
+  el.style.opacity = '0';
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+function drawFrame(timestamp) {
+  requestAnimationFrame(drawFrame);
+
+  if (!lastTime) lastTime = timestamp;
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  camAngleY += 0.003;
+
+  if (STATE !== 'idle') {
+    elapsed += dt;
+    if (STATE === 'flying' && elapsed >= FLY_DURATION) {
+      STATE = 'processing';
+      elapsed = 0;
+      showStatus('processing...');
+    }
+    if (STATE === 'processing') {
+      // Activate nodes based on their scheduled time
+      nodeState.forEach(ns => {
+        if (!ns.glowActive && elapsed >= ns.activateAt) {
+          ns.glowActive = true;
+        }
+        if (ns.glowActive) ns.glowT += dt;
+      });
+      if (elapsed >= PROCESS_DURATION) {
+        STATE = 'fading';
+        elapsed = 0;
+        showStatus('complete');
+      }
+    }
+    if (STATE === 'fading') {
+      if (elapsed >= FADE_DURATION) {
+        STATE = 'idle';
+        elapsed = 0;
+        nodeState.forEach(ns => { ns.glowT = 0; ns.glowActive = false; });
+        document.getElementById('send-btn').disabled = false;
+        hideStatus();
+      }
+    }
+  }
+
+  // ── Render ──
+  const c = ctx2d;
+  c.clearRect(0, 0, W, H);
+
+  // Sort all projected items by z for depth ordering
+  const projVerts = verts.map((v,i) => {
+    const p = project(v.x, v.y, v.z);
+    return {p, i};
+  });
+
+  // Draw edges
+  edges.forEach(([a,b]) => {
+    const pa = projVerts[a].p, pb = projVerts[b].p;
+    if (!pa || !pb) return;
+    const nsA = nodeState[a], nsB = nodeState[b];
+    const bothGlow = nsA.glowActive && nsB.glowActive;
+    const fadeF = STATE === 'fading' ? Math.max(0, 1 - elapsed/FADE_DURATION) : 1;
+
+    if (bothGlow) {
+      const g = Math.min(nsA.glowT, nsB.glowT);
+      const intensity = Math.min(g / 0.5, 1) * fadeF;
+      const pulse = 0.4 + Math.sin(timestamp*0.003 + nsA.phaseOff) * 0.3;
+      c.strokeStyle = `rgba(80,130,255,${intensity * pulse * 0.7})`;
+      c.lineWidth = 1.2 * pa.scale * 200 / SPHERE_R;
+    } else {
+      const depth = (pa.z + pb.z) / 2;
+      const dAlpha = Math.max(0.08, Math.min(0.35, 0.2 + depth / 600));
+      c.strokeStyle = `rgba(60,90,140,${dAlpha})`;
+      c.lineWidth = 0.6;
+    }
+
+    c.beginPath();
+    c.moveTo(pa.sx, pa.sy);
+    c.lineTo(pb.sx, pb.sy);
+    c.stroke();
+  });
+
+  // Draw nodes (sorted back-to-front for glow layering)
+  const sortedVerts = [...projVerts].sort((a,b) => (a.p?.z||0) - (b.p?.z||0));
+
+  sortedVerts.forEach(({p, i}) => {
+    if (!p) return;
+    const ns = nodeState[i];
+    const r = 3.5 * p.scale * 200 / SPHERE_R;
+    const fadeF = STATE === 'fading' ? Math.max(0, 1 - elapsed/FADE_DURATION) : 1;
+
+    if (ns.glowActive && ns.glowT > 0) {
+      const progress = Math.min(ns.glowT / 0.4, 1);
+      const pulse = 0.7 + Math.sin(ns.glowT * 4 + ns.phaseOff) * 0.3;
+      const alpha = progress * pulse * fadeF;
+
+      // Outer halo
+      const haloR = r * (3.5 + Math.sin(ns.glowT*3 + ns.phaseOff)*0.5);
+      const halo = c.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
+      halo.addColorStop(0, `rgba(100,160,255,${alpha * 0.6})`);
+      halo.addColorStop(0.4, `rgba(70,120,230,${alpha * 0.25})`);
+      halo.addColorStop(1, `rgba(50,80,200,0)`);
+      c.fillStyle = halo;
+      c.beginPath();
+      c.arc(p.sx, p.sy, haloR, 0, Math.PI*2);
+      c.fill();
+
+      // Core node
+      const grad = c.createRadialGradient(p.sx-r*0.3, p.sy-r*0.3, 0, p.sx, p.sy, r);
+      grad.addColorStop(0, `rgba(200,230,255,${alpha})`);
+      grad.addColorStop(0.5, `rgba(100,160,255,${alpha * 0.9})`);
+      grad.addColorStop(1, `rgba(60,100,220,${alpha * 0.7})`);
+      c.fillStyle = grad;
+      c.beginPath();
+      c.arc(p.sx, p.sy, r * (1 + progress * 0.3), 0, Math.PI*2);
+      c.fill();
+    } else {
+      // Dormant node
+      const depth = Math.max(0, Math.min(1, (p.z + SPHERE_R) / (SPHERE_R * 2)));
+      const baseAlpha = 0.3 + depth * 0.5;
+      c.fillStyle = `rgba(100,140,200,${baseAlpha})`;
+      c.beginPath();
+      c.arc(p.sx, p.sy, r, 0, Math.PI*2);
+      c.fill();
+    }
+  });
+
+  // Draw prompt sphere
+  if (STATE === 'flying' || STATE === 'processing' || STATE === 'fading') {
+    let px, py, pz, pAlpha, pRadius;
+
+    if (STATE === 'flying') {
+      const t = easeInOut(Math.min(elapsed / FLY_DURATION, 1));
+      px = lerp(PROMPT_START.x, PROMPT_TARGET.x, t);
+      py = lerp(PROMPT_START.y, PROMPT_TARGET.y, t);
+      pz = lerp(PROMPT_START.z, PROMPT_TARGET.z, t);
+      pAlpha = 1;
+      pRadius = lerp(22, 14, t);
+    } else if (STATE === 'processing') {
+      px = 0; py = 0; pz = 0;
+      const pulse = 0.9 + Math.sin(elapsed * 5) * 0.12;
+      pAlpha = 0.85;
+      pRadius = 14 * pulse;
+    } else {
+      // fading
+      px = 0; py = 0; pz = 0;
+      pAlpha = Math.max(0, 1 - elapsed / FADE_DURATION);
+      pRadius = 14;
+    }
+
+    const pp = project(px, py, pz);
+    if (pp) {
+      // Outer glow ring
+      const glowR = pRadius * 2.8 * pp.scale * 200 / SPHERE_R;
+      const glow = ctx2d.createRadialGradient(pp.sx, pp.sy, 0, pp.sx, pp.sy, glowR);
+      glow.addColorStop(0, `rgba(80,255,80,${pAlpha * 0.5})`);
+      glow.addColorStop(0.3, `rgba(50,200,50,${pAlpha * 0.2})`);
+      glow.addColorStop(1, `rgba(20,120,20,0)`);
+      ctx2d.fillStyle = glow;
+      ctx2d.beginPath();
+      ctx2d.arc(pp.sx, pp.sy, glowR, 0, Math.PI*2);
+      ctx2d.fill();
+
+      // Core green sphere
+      const coreR = pRadius * pp.scale * 200 / SPHERE_R;
+      const grad = ctx2d.createRadialGradient(
+        pp.sx - coreR*0.35, pp.sy - coreR*0.35, 0,
+        pp.sx, pp.sy, coreR
+      );
+      grad.addColorStop(0, `rgba(200,255,180,${pAlpha})`);
+      grad.addColorStop(0.4, `rgba(80,230,80,${pAlpha})`);
+      grad.addColorStop(1, `rgba(30,160,30,${pAlpha * 0.8})`);
+      ctx2d.fillStyle = grad;
+      ctx2d.beginPath();
+      ctx2d.arc(pp.sx, pp.sy, coreR, 0, Math.PI*2);
+      ctx2d.fill();
+
+      // Dashed trail when flying
+      if (STATE === 'flying') {
+        const t = Math.min(elapsed / FLY_DURATION, 1);
+        const trailStartP = project(PROMPT_START.x, PROMPT_START.y, PROMPT_START.z);
+        if (trailStartP) {
+          ctx2d.strokeStyle = `rgba(80,220,80,0.35)`;
+          ctx2d.lineWidth = 1.5;
+          ctx2d.setLineDash([8, 10]);
+          ctx2d.beginPath();
+          ctx2d.moveTo(trailStartP.sx, trailStartP.sy);
+          ctx2d.lineTo(pp.sx, pp.sy);
+          ctx2d.stroke();
+          ctx2d.setLineDash([]);
+        }
+      }
+    }
+  }
+}
+
+requestAnimationFrame(drawFrame);
+
+// ─── Mouse drag to rotate ────────────────────────────────────────────────────
+let dragging = false, dragX = 0, dragY = 0;
+canvas.addEventListener('mousedown', e => { dragging = true; dragX = e.clientX; dragY = e.clientY; });
+window.addEventListener('mouseup', () => { dragging = false; });
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  camAngleY += (e.clientX - dragX) * 0.005;
+  camAngleX += (e.clientY - dragY) * 0.005;
+  camAngleX = Math.max(-1.2, Math.min(1.2, camAngleX));
+  dragX = e.clientX; dragY = e.clientY;
+});
+
+// ─── UI wiring ────────────────────────────────────────────────────────────────
+document.getElementById('send-btn').addEventListener('click', startAnimation);
+document.getElementById('prompt-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startAnimation();
+});
+
+window.addEventListener('resize', () => {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+});
+</script>
+</body>
+</html>
