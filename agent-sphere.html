@@ -1,202 +1,236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Neural Agent Sphere</title>
+<meta charset="UTF-8"/>
+<title>mo-chi</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #07080f; overflow: hidden; font-family: 'Courier New', monospace; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace; }
+#canvas-wrap { position:fixed; inset:0; }
 
-  #ui {
-    position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 10px; z-index: 10;
-  }
-  #prompt-input {
-    width: 420px; padding: 13px 18px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px; color: #ddeeff;
-    font-size: 14px; font-family: 'Courier New', monospace;
-    outline: none; transition: border-color 0.2s;
-  }
-  #prompt-input:focus { border-color: rgba(80,220,80,0.45); }
-  #send-btn {
-    padding: 13px 26px;
-    background: rgba(60,200,60,0.12);
-    border: 1px solid rgba(60,200,60,0.4);
-    border-radius: 10px; color: #88ff88;
-    cursor: pointer; font-family: 'Courier New', monospace;
-    font-size: 13px; letter-spacing: 1px; transition: all 0.2s;
-  }
-  #send-btn:hover { background: rgba(60,200,60,0.22); }
-  #send-btn:disabled { opacity: 0.4; cursor: default; }
+#title {
+  position:fixed; top:22px; left:50%; transform:translateX(-50%);
+  font-size:10px; letter-spacing:5px; text-transform:uppercase;
+  color:rgba(180,210,255,0.18); user-select:none; pointer-events:none;
+}
+#status {
+  position:fixed; top:42px; left:50%; transform:translateX(-50%);
+  font-size:10px; letter-spacing:2px; color:rgba(120,210,130,0.55);
+  min-width:280px; text-align:center; transition:opacity .5s; opacity:0;
+  pointer-events:none;
+}
 
-  #label {
-    position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
-    color: rgba(180,210,255,0.25); font-size: 11px; letter-spacing: 4px;
-    text-transform: uppercase;
-  }
-  #status-line {
-    position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
-    color: rgba(120,200,120,0.5); font-size: 11px; letter-spacing: 2px;
-    min-width: 200px; text-align: center; transition: opacity 0.4s;
-    opacity: 0;
-  }
-  #ws-indicator {
-    position: absolute; top: 24px; right: 28px;
-    display: flex; align-items: center; gap: 7px;
-  }
-  #ws-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #888; transition: background 0.4s;
-  }
-  #ws-label { display: none; }
-  #response-panel {
-    position: absolute; right: 28px; top: 60px; bottom: 110px;
-    width: 280px; pointer-events: none;
-    display: flex; flex-direction: column;
-  }
-  #response-scroll {
-    flex: 1; overflow-y: auto; padding: 0 4px;
-    scrollbar-width: none;
-  }
-  #response-text {
-    color: rgba(180,220,255,0.75); font-size: 13px;
-    line-height: 1.7; white-space: pre-wrap; word-break: break-word;
-  }
+#ws-dot {
+  position:fixed; top:24px; right:26px; width:8px; height:8px;
+  border-radius:50%; background:#444; transition:background .4s; cursor:default;
+}
 
-  /* Agent legend + proposer panels (left side) */
-  #agent-panel {
-    position: absolute; left: 28px; top: 60px; bottom: 110px;
-    width: 230px; display: flex; flex-direction: column; gap: 10px;
-  }
-  .agent-card {
-    border-radius: 8px; padding: 10px 12px;
-    background: rgba(255,255,255,0.03);
-    border-left: 3px solid;
-    display: flex; flex-direction: column; gap: 5px;
-    flex: 1; overflow: hidden;
-  }
-  .agent-card-header {
-    display: flex; align-items: center; gap: 8px;
-  }
-  .agent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .agent-name {
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
-    opacity: 0.7;
-  }
-  .agent-output {
-    font-size: 11px; line-height: 1.6; opacity: 0.55;
-    overflow-y: auto; white-space: pre-wrap; word-break: break-word;
-    scrollbar-width: none; flex: 1;
-  }
-  /* Per-agent accent colors */
-  .agent-analytical { border-color: rgba(80,140,255,0.6); }
-  .agent-analytical .agent-dot { background: #508cff; }
-  .agent-analytical .agent-name { color: #508cff; }
-  .agent-analytical .agent-output { color: rgba(140,180,255,0.7); }
+/* ── Proposer cards (left) ── */
+#proposers {
+  position:fixed; left:22px; top:58px; bottom:96px; width:210px;
+  display:flex; flex-direction:column; gap:7px;
+}
+.prop-card {
+  flex:1; border-radius:9px; padding:9px 11px;
+  background:rgba(255,255,255,0.022);
+  display:flex; flex-direction:column; gap:5px; overflow:hidden;
+  border-left:2px solid transparent;
+  transition:border-color .4s;
+}
+.prop-header { display:flex; align-items:center; gap:7px; }
+.prop-indicator {
+  width:6px; height:6px; border-radius:50%; flex-shrink:0;
+  transition:box-shadow .3s;
+}
+.prop-label { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; }
+.prop-text  {
+  font-size:10.5px; line-height:1.65; overflow-y:auto; flex:1;
+  white-space:pre-wrap; word-break:break-word; scrollbar-width:none;
+}
 
-  .agent-creative { border-color: rgba(200,80,255,0.6); }
-  .agent-creative .agent-dot { background: #c850ff; }
-  .agent-creative .agent-name { color: #c850ff; }
-  .agent-creative .agent-output { color: rgba(210,150,255,0.7); }
+/* agent accent colours */
+.prop-analytical { border-color:rgba(80,140,255,.45); }
+.prop-analytical .prop-indicator { background:#508cff; }
+.prop-analytical .prop-label { color:rgba(100,160,255,.7); }
+.prop-analytical .prop-text  { color:rgba(130,175,255,.6); }
 
-  .agent-critic { border-color: rgba(255,140,50,0.6); }
-  .agent-critic .agent-dot { background: #ff8c32; }
-  .agent-critic .agent-name { color: #ff8c32; }
-  .agent-critic .agent-output { color: rgba(255,190,130,0.7); }
+.prop-creative { border-color:rgba(200,80,255,.45); }
+.prop-creative .prop-indicator { background:#c850ff; }
+.prop-creative .prop-label { color:rgba(210,110,255,.7); }
+.prop-creative .prop-text  { color:rgba(210,150,255,.6); }
 
-  /* Response panel label */
-  #response-label {
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
-    color: rgba(80,230,150,0.5); margin-bottom: 6px;
-  }
+.prop-critic { border-color:rgba(255,140,50,.45); }
+.prop-critic .prop-indicator { background:#ff8c32; }
+.prop-critic .prop-label { color:rgba(255,160,80,.7); }
+.prop-critic .prop-text  { color:rgba(255,185,125,.6); }
+
+/* active pulse on indicator */
+.prop-indicator.active {
+  box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 8px currentColor;
+}
+
+/* ── Aggregator panel (right) ── */
+#agg-panel {
+  position:fixed; right:22px; top:58px; bottom:96px; width:230px;
+  border-radius:9px; padding:9px 13px;
+  background:rgba(255,255,255,0.022);
+  border-left:2px solid rgba(80,230,150,.45);
+  display:flex; flex-direction:column; gap:5px; overflow:hidden;
+}
+#agg-header { display:flex; align-items:center; gap:7px; }
+#agg-indicator {
+  width:6px; height:6px; border-radius:50%; background:#50e696;
+  flex-shrink:0; transition:box-shadow .3s;
+}
+#agg-indicator.active {
+  box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 8px #50e696;
+}
+#agg-label { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; color:rgba(80,230,150,.7); }
+#agg-text  {
+  font-size:11px; line-height:1.7; overflow-y:auto; flex:1;
+  white-space:pre-wrap; word-break:break-word; scrollbar-width:none;
+  color:rgba(150,230,190,.65);
+}
+
+/* ── Input bar ── */
+#ui {
+  position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
+  display:flex; gap:9px; z-index:10;
+}
+#prompt-input {
+  width:360px; padding:11px 16px;
+  background:rgba(255,255,255,0.035);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:9px; color:#cce; font-size:13px;
+  font-family:'Courier New',monospace; outline:none;
+  transition:border-color .25s;
+}
+#prompt-input:focus { border-color:rgba(80,220,100,.38); }
+#send-btn {
+  padding:11px 22px; background:rgba(55,190,75,.1);
+  border:1px solid rgba(55,190,75,.32); border-radius:9px;
+  color:#7cf888; cursor:pointer; font-family:'Courier New',monospace;
+  font-size:12px; letter-spacing:1px; transition:all .2s;
+}
+#send-btn:hover    { background:rgba(55,190,75,.2); }
+#send-btn:disabled { opacity:.3; cursor:default; }
 </style>
 </head>
 <body>
 
-<canvas id="c"></canvas>
-<div id="label">Neural Agent Network</div>
-<div id="status-line"></div>
+<div id="canvas-wrap"></div>
+<div id="title">mo-chi · neural agent network</div>
+<div id="status"></div>
+<div id="ws-dot" title="connecting…"></div>
 
-<!-- WS connection indicator -->
-<div id="ws-indicator">
-  <span id="ws-dot"></span>
-  <span id="ws-label">connecting</span>
-</div>
-
-<!-- Layer 1 proposer panels (left) -->
-<div id="agent-panel">
-  <div class="agent-card agent-analytical">
-    <div class="agent-card-header">
-      <span class="agent-dot"></span>
-      <span class="agent-name">Analytical</span>
+<!-- Layer 1 proposers -->
+<div id="proposers">
+  <div class="prop-card prop-analytical">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-analytical"></span>
+      <span class="prop-label">Analytical</span>
     </div>
-    <div class="agent-output" id="prop-analytical-scroll">
-      <p id="prop-analytical"></p>
-    </div>
+    <div class="prop-text" id="text-analytical"></div>
   </div>
-  <div class="agent-card agent-creative">
-    <div class="agent-card-header">
-      <span class="agent-dot"></span>
-      <span class="agent-name">Creative</span>
+  <div class="prop-card prop-creative">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-creative"></span>
+      <span class="prop-label">Creative</span>
     </div>
-    <div class="agent-output" id="prop-creative-scroll">
-      <p id="prop-creative"></p>
-    </div>
+    <div class="prop-text" id="text-creative"></div>
   </div>
-  <div class="agent-card agent-critic">
-    <div class="agent-card-header">
-      <span class="agent-dot"></span>
-      <span class="agent-name">Critic</span>
+  <div class="prop-card prop-critic">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-critic"></span>
+      <span class="prop-label">Critic</span>
     </div>
-    <div class="agent-output" id="prop-critic-scroll">
-      <p id="prop-critic"></p>
-    </div>
+    <div class="prop-text" id="text-critic"></div>
   </div>
 </div>
 
-<!-- Layer 2 aggregator response panel (right) -->
-<div id="response-panel">
-  <div id="response-label">&#9632; Aggregator</div>
-  <div id="response-scroll">
-    <p id="response-text"></p>
+<!-- Layer 2 aggregator -->
+<div id="agg-panel">
+  <div id="agg-header">
+    <span id="agg-indicator"></span>
+    <span id="agg-label">Aggregator</span>
   </div>
+  <div id="agg-text"></div>
 </div>
 
 <div id="ui">
-  <input id="prompt-input" type="text" placeholder="Enter a prompt..." />
+  <input id="prompt-input" type="text" placeholder="Enter a prompt…" autocomplete="off"/>
   <button id="send-btn">SEND</button>
 </div>
 
-<script>
-// ─── Canvas & Context ────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const ctx2d = canvas.getContext('2d');
+<script type="importmap">
+{
+  "imports": {
+    "three":          "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls }    from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer }   from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 
-let W = window.innerWidth, H = window.innerHeight;
-canvas.width = W; canvas.height = H;
+// ── Renderer ──────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.getElementById('canvas-wrap').appendChild(renderer.domElement);
 
-// ─── Math helpers ────────────────────────────────────────────────────────────
-const v3 = (x,y,z) => ({x,y,z});
-const lerp = (a,b,t) => a + (b-a)*t;
-const easeInOut = t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-const easeOutCubic = t => 1 - Math.pow(1-t, 3);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07080f);
 
-// ─── Geodesic Sphere (Icosahedron subdivided) ────────────────────────────────
-function buildGeodesic(radius, subdivisions) {
+const camera = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 1.5, 9.5);
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping   = true;
+controls.dampingFactor   = 0.055;
+controls.autoRotate      = true;
+controls.autoRotateSpeed = 0.35;
+controls.enablePan       = false;
+controls.minDistance     = 5;
+controls.maxDistance     = 20;
+controls.addEventListener('start', () => { controls.autoRotate = false; });
+
+// ── Lighting ──────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+scene.add(new THREE.HemisphereLight(0x223366, 0x000000, 0.35));
+
+// ── Post-processing (bloom) ───────────────────────────────────────────────────
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  1.35,   // strength
+  0.55,   // radius
+  0.24    // threshold — dormant nodes stay below this
+);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// ── Geodesic sphere builder ───────────────────────────────────────────────────
+function buildGeodesic(radius, subdivisions, noiseMag = 0.09) {
   const phi = (1 + Math.sqrt(5)) / 2;
-  // 12 icosahedron base vertices
   let verts = [
     [-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],
     [0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],
     [phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]
   ].map(([x,y,z]) => {
-    const len = Math.sqrt(x*x+y*y+z*z);
-    return {x:x/len, y:y/len, z:z/len};
+    const l = Math.sqrt(x*x+y*y+z*z);
+    return new THREE.Vector3(x/l, y/l, z/l);
   });
 
-  // 20 icosahedron faces
   let faces = [
     [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
     [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
@@ -208,13 +242,10 @@ function buildGeodesic(radius, subdivisions) {
   function getMid(a, b) {
     const key = Math.min(a,b)*10000 + Math.max(a,b);
     if (midCache.has(key)) return midCache.get(key);
-    const v = verts[a], w = verts[b];
-    const mx = (v.x+w.x)/2, my = (v.y+w.y)/2, mz = (v.z+w.z)/2;
-    const len = Math.sqrt(mx*mx+my*my+mz*mz);
-    verts.push({x:mx/len, y:my/len, z:mz/len});
-    const idx = verts.length - 1;
-    midCache.set(key, idx);
-    return idx;
+    const m = verts[a].clone().add(verts[b]).normalize();
+    verts.push(m);
+    midCache.set(key, verts.length - 1);
+    return verts.length - 1;
   }
 
   for (let s = 0; s < subdivisions; s++) {
@@ -226,6 +257,14 @@ function buildGeodesic(radius, subdivisions) {
     faces = next;
   }
 
+  // Organic radial noise — each vertex perturbed slightly along its normal.
+  // Nearby vertices share no correlation intentionally, giving a lumpy,
+  // natural feel rather than a smooth mathematical shape.
+  verts = verts.map(v => {
+    const r = radius * (1 + (Math.random() - 0.5) * 2 * noiseMag);
+    return v.clone().multiplyScalar(r);
+  });
+
   // Extract unique edges
   const edgeSet = new Set();
   const edges = [];
@@ -236,455 +275,384 @@ function buildGeodesic(radius, subdivisions) {
     });
   }
 
-  return {
-    verts: verts.map(v => ({x:v.x*radius, y:v.y*radius, z:v.z*radius})),
-    edges
-  };
+  return { verts, edges };
 }
 
-const SPHERE_R = 180;
-const { verts, edges } = buildGeodesic(SPHERE_R, 2);
-const N = verts.length;
+const SPHERE_R = 3.2;
+const { verts, edges } = buildGeodesic(SPHERE_R, 2, 0.09);
+// 162 verts, 480 edges
 
-// ─── Agent color palette ─────────────────────────────────────────────────────
-const AGENT_COLORS = {
-  analytical: { core: [80,  140, 255], halo: [40,  80,  200] },
-  creative:   { core: [200, 80,  255], halo: [130, 40,  200] },
-  critic:     { core: [255, 140, 50 ], halo: [200, 80,  20 ] },
-  aggregator: { core: [80,  230, 150], halo: [40,  170, 100] },
-  default:    { core: [100, 140, 200], halo: [60,  90,  160] },
+// ── Per-agent emissive colours ────────────────────────────────────────────────
+const AGENT_COLOR = {
+  analytical: new THREE.Color(0.28, 0.52, 1.00),
+  creative:   new THREE.Color(0.76, 0.28, 1.00),
+  critic:     new THREE.Color(1.00, 0.52, 0.18),
+  aggregator: new THREE.Color(0.28, 0.90, 0.55),
 };
 
-function agentColor(agent, alpha, part = 'core') {
-  const c = (AGENT_COLORS[agent] || AGENT_COLORS.default)[part];
-  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
-}
+// ── Node meshes ───────────────────────────────────────────────────────────────
+// Small spheres — only glow when their agent is actively running
+const nodeGeo = new THREE.SphereGeometry(0.042, 6, 6);
 
-// ─── Node state ──────────────────────────────────────────────────────────────
-const nodeState = verts.map(() => ({
-  phaseOff:   Math.random() * Math.PI * 2,
-  glowT:      0,
-  glowActive: false,
-  agent:      'default',
-  layer:      0,
-}));
-
-// ─── Camera / Projection ─────────────────────────────────────────────────────
-let camAngleY = 0, camAngleX = 0.18;
-const CAM_DIST = 520;
-const FOV_SCALE = 600;
-
-function project(x, y, z) {
-  // Rotate world
-  const cosY = Math.cos(camAngleY), sinY = Math.sin(camAngleY);
-  const cosX = Math.cos(camAngleX), sinX = Math.sin(camAngleX);
-
-  // Y-axis rotation
-  const rx = x * cosY - z * sinY;
-  const ry = y;
-  const rz = x * sinY + z * cosY;
-
-  // X-axis rotation
-  const fx = rx;
-  const fy = ry * cosX - rz * sinX;
-  const fz = ry * sinX + rz * cosX;
-
-  const d = CAM_DIST + fz;
-  if (d < 1) return null;
-  const scale = FOV_SCALE / d;
-  return {
-    sx: W/2 + fx * scale,
-    sy: H/2 - fy * scale,
-    scale,
-    z: fz
-  };
-}
-
-// ─── Animation state ─────────────────────────────────────────────────────────
-let STATE = 'idle'; // idle | flying | processing | fading
-let elapsed = 0;
-let lastTime = null;
-
-const PROMPT_TARGET = {x:0, y:0, z:0};
-const PROMPT_START  = {x: -(W*0.38), y: 20, z: -80};
-const FLY_DURATION  = 1.1;
-const FADE_DURATION = 1.5;
-
-// Called by WS event or fallback demo mode
-function activateNode(id, agent = 'default', layer = 0) {
-  if (id < 0 || id >= nodeState.length) return;
-  nodeState[id].glowActive = true;
-  nodeState[id].agent = agent;
-  nodeState[id].layer = layer;
-}
-
-function resetNodes() {
-  nodeState.forEach(ns => {
-    ns.glowT = 0;
-    ns.glowActive = false;
-    ns.agent = 'default';
-    ns.layer = 0;
+const nodeStates = verts.map(pos => {
+  const mat = new THREE.MeshStandardMaterial({
+    color:             new THREE.Color(0x0b1521),
+    emissive:          new THREE.Color(0, 0, 0),
+    emissiveIntensity: 0,
+    roughness:         0.45,
+    metalness:         0.55,
   });
+  const mesh = new THREE.Mesh(nodeGeo, mat);
+  mesh.position.copy(pos);
+  scene.add(mesh);
+  return {
+    mesh, mat,
+    glowT:      0,
+    glowActive: false,
+    fadingOut:  false,
+    agent:      null,
+    phaseOff:   Math.random() * Math.PI * 2,
+  };
+});
+
+// ── Edges (single LineSegments with per-vertex colour) ────────────────────────
+const edgePosArr = new Float32Array(edges.length * 6);
+const edgeColArr = new Float32Array(edges.length * 6);
+const DORMANT_EDGE = [0.036, 0.055, 0.10];
+
+edges.forEach(([a, b], i) => {
+  edgePosArr.set([verts[a].x, verts[a].y, verts[a].z,
+                  verts[b].x, verts[b].y, verts[b].z], i * 6);
+  edgeColArr.set([...DORMANT_EDGE, ...DORMANT_EDGE], i * 6);
+});
+
+const edgeGeo = new THREE.BufferGeometry();
+edgeGeo.setAttribute('position', new THREE.BufferAttribute(edgePosArr, 3));
+edgeGeo.setAttribute('color',    new THREE.BufferAttribute(edgeColArr, 3));
+const edgeLines = new THREE.LineSegments(
+  edgeGeo, new THREE.LineBasicMaterial({ vertexColors: true })
+);
+scene.add(edgeLines);
+
+// ── Prompt sphere ─────────────────────────────────────────────────────────────
+const promptMat = new THREE.MeshStandardMaterial({
+  color:             new THREE.Color(0.25, 1.0, 0.25),
+  emissive:          new THREE.Color(0.18, 1.0, 0.18),
+  emissiveIntensity: 0,
+  transparent: true, opacity: 0,
+  roughness: 0.08, metalness: 0.0,
+});
+const promptMesh = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), promptMat);
+scene.add(promptMesh);
+
+const promptLight = new THREE.PointLight(0x44ff44, 0, 10);
+scene.add(promptLight);
+
+const PROMPT_START = new THREE.Vector3(-8.8, 0.5, -0.8);
+const PROMPT_END   = new THREE.Vector3(0, 0, 0);
+promptMesh.position.copy(PROMPT_START);
+
+// ── Animation state ───────────────────────────────────────────────────────────
+let STATE   = 'idle'; // idle | flying | processing | fading
+let elapsed = 0;
+const FLY_DUR  = 1.15;
+const FADE_DUR = 2.0;
+const easeInOut = t => t < .5 ? 2*t*t : -1 + (4 - 2*t)*t;
+
+function activateNodes(nodeIds, agent) {
+  nodeIds.forEach(id => {
+    if (id < 0 || id >= nodeStates.length) return;
+    const ns   = nodeStates[id];
+    ns.glowActive = true;
+    ns.fadingOut  = false;
+    ns.agent      = agent;
+    ns.glowT      = 0;
+    ns.mat.emissive.copy(AGENT_COLOR[agent] ?? new THREE.Color(0.5, 0.5, 0.5));
+  });
+  setIndicator(agent, true);
+}
+
+function fadeNodes(agent) {
+  nodeStates.forEach(ns => {
+    if (ns.agent === agent) ns.fadingOut = true;
+  });
+  setIndicator(agent, false);
+}
+
+function resetAll() {
+  nodeStates.forEach(ns => {
+    ns.glowT = 0; ns.glowActive = false; ns.fadingOut = false; ns.agent = null;
+    ns.mat.emissiveIntensity = 0;
+    ns.mesh.scale.setScalar(1);
+  });
+  ['analytical','creative','critic','aggregator'].forEach(a => setIndicator(a, false));
 }
 
 function beginFly() {
   if (STATE !== 'idle') return;
-  STATE = 'flying';
-  elapsed = 0;
-  resetNodes();
+  STATE = 'flying'; elapsed = 0;
+  resetAll();
+  promptMesh.position.copy(PROMPT_START);
+  promptMat.opacity = 1;
+  promptMat.emissiveIntensity = 2.2;
+  promptLight.intensity = 5;
   document.getElementById('send-btn').disabled = true;
-  showStatus('transmitting...');
+  showStatus('transmitting…');
 }
 
 function beginFade() {
-  STATE = 'fading';
-  elapsed = 0;
+  STATE = 'fading'; elapsed = 0;
   showStatus('complete');
-  setTimeout(() => {
-    document.getElementById('send-btn').disabled = false;
-  }, FADE_DURATION * 1000);
+  setTimeout(() => { document.getElementById('send-btn').disabled = false; }, FADE_DUR * 1000);
 }
 
-// ─── WebSocket ───────────────────────────────────────────────────────────────
-let ws = null;
-let wsConnected = false;
-const responseEl = document.getElementById('response-text');
+// ── Panel helpers ─────────────────────────────────────────────────────────────
+const statusEl = document.getElementById('status');
+function showStatus(msg) { statusEl.textContent = msg; statusEl.style.opacity = '1'; }
+function hideStatus()    { statusEl.style.opacity = '0'; }
+
+function setIndicator(agent, active) {
+  const el = agent === 'aggregator'
+    ? document.getElementById('agg-indicator')
+    : document.getElementById(`ind-${agent}`);
+  if (!el) return;
+  if (active) el.classList.add('active');
+  else        el.classList.remove('active');
+}
+
+function clearPanels() {
+  ['analytical','creative','critic'].forEach(a => {
+    const el = document.getElementById(`text-${a}`);
+    if (el) el.textContent = '';
+  });
+  document.getElementById('agg-text').textContent = '';
+}
+
+function appendToken(agent, text) {
+  if (agent === 'aggregator') {
+    const el = document.getElementById('agg-text');
+    el.textContent += text;
+    el.scrollTop = el.scrollHeight;
+  } else {
+    const el = document.getElementById(`text-${agent}`);
+    if (!el) return;
+    el.textContent += text;
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+let ws = null, wsConnected = false;
 
 function connectWS() {
   ws = new WebSocket('ws://localhost:8000/ws');
+  const dot = document.getElementById('ws-dot');
 
-  ws.onopen = () => {
-    wsConnected = true;
-    document.getElementById('ws-dot').style.background = '#44ff88';
-    document.getElementById('ws-dot').title = 'connected';
-  };
+  ws.onopen  = () => { wsConnected = true;  dot.style.background = '#44ff88'; dot.title = 'connected'; };
+  ws.onclose = () => { wsConnected = false; dot.style.background = '#ff4444'; dot.title = 'disconnected'; setTimeout(connectWS, 3000); };
+  ws.onerror = () => { wsConnected = false; dot.style.background = '#ff8800'; dot.title = 'error'; };
 
-  ws.onclose = () => {
-    wsConnected = false;
-    document.getElementById('ws-dot').style.background = '#ff4444';
-    document.getElementById('ws-dot').title = 'disconnected — retrying';
-    setTimeout(connectWS, 3000);
-  };
+  ws.onmessage = ({ data }) => {
+    const msg = JSON.parse(data);
 
-  ws.onerror = () => {
-    wsConnected = false;
-    document.getElementById('ws-dot').style.background = '#ff8800';
-    document.getElementById('ws-dot').title = 'error';
-  };
+    switch (msg.event) {
+      case 'prompt_received':
+        clearPanels();
+        beginFly();
+        break;
 
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
+      case 'layer_start':
+        showStatus(`layer ${msg.layer} · ${(msg.agents || []).join(' · ')}`);
+        break;
 
-    if (msg.event === 'prompt_received') {
-      responseEl.textContent = '';
-      clearProposerPanels();
-      beginFly();
-    }
+      case 'agent_start':
+        // Only light up nodes while this LLM call is running
+        activateNodes(msg.node_ids, msg.agent);
+        break;
 
-    if (msg.event === 'layer_start') {
-      const names = (msg.agents || []).join(' · ');
-      showStatus(`layer ${msg.layer}: ${names}`);
-    }
+      case 'token':
+        appendToken(msg.agent, msg.text);
+        break;
 
-    if (msg.event === 'node_activate') {
-      activateNode(msg.node_id, msg.agent, msg.layer);
-    }
+      case 'agent_complete':
+        // Layer 1 proposers fade when they finish; aggregator stays lit until agent_done
+        if (msg.layer === 1) fadeNodes(msg.agent);
+        break;
 
-    if (msg.event === 'token') {
-      if (msg.layer === 2 || msg.agent === 'aggregator') {
-        // Layer 2 aggregator → main response panel
-        responseEl.textContent += msg.text;
-        responseEl.parentElement.scrollTop = responseEl.parentElement.scrollHeight;
-      } else {
-        // Layer 1 proposers → their individual mini panels
-        appendProposerToken(msg.agent, msg.text);
-      }
-    }
+      case 'layer_done':
+        if (msg.layer === 1) showStatus('layer 2 · aggregating…');
+        break;
 
-    if (msg.event === 'layer_done') {
-      if (msg.layer === 1) showStatus('layer 2: aggregating...');
-    }
+      case 'agent_done':
+        beginFade();
+        break;
 
-    if (msg.event === 'agent_done') {
-      beginFade();
-    }
-
-    if (msg.event === 'error') {
-      showStatus('error: ' + msg.message);
-      document.getElementById('send-btn').disabled = false;
-      STATE = 'idle';
+      case 'error':
+        showStatus('error · ' + msg.message);
+        document.getElementById('send-btn').disabled = false;
+        STATE = 'idle';
+        break;
     }
   };
 }
-
 connectWS();
 
+// ── Send / demo ───────────────────────────────────────────────────────────────
 function startAnimation() {
-  const input = document.getElementById('prompt-input');
-  const text = input.value.trim();
+  const text = document.getElementById('prompt-input').value.trim();
   if (!text) return;
 
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'prompt', text }));
-  } else {
-    // Demo fallback — cycle through agent sectors without a server
-    beginFly();
-    showStatus('demo mode (no server)');
-    clearProposerPanels();
-    responseEl.textContent = '';
-    const demoAgents = [
-      { name: 'analytical', nodes: Array.from({length:11},(_,i)=>i),    layer:1 },
-      { name: 'creative',   nodes: Array.from({length:11},(_,i)=>i+11), layer:1 },
-      { name: 'critic',     nodes: Array.from({length:10},(_,i)=>i+22), layer:1 },
-      { name: 'aggregator', nodes: Array.from({length:10},(_,i)=>i+32), layer:2 },
-    ];
-    let di = 0;
-    const interval = setInterval(() => {
-      const ag = demoAgents[Math.floor(di / 3) % demoAgents.length];
-      const nodeIdx = di % ag.nodes.length;
-      activateNode(ag.nodes[nodeIdx], ag.name, ag.layer);
-      di++;
-      if (di >= 42) { clearInterval(interval); beginFade(); }
-    }, 70);
+    return;
   }
+
+  // Demo fallback (no server) — mimics the real timing
+  clearPanels();
+  beginFly();
+  showStatus('demo mode · no server');
+
+  const DEMO_AGENTS = [
+    { name: 'analytical', nodes: Array.from({length:41}, (_,i) => i),      layer:1 },
+    { name: 'creative',   nodes: Array.from({length:41}, (_,i) => i + 41), layer:1 },
+    { name: 'critic',     nodes: Array.from({length:40}, (_,i) => i + 82), layer:1 },
+    { name: 'aggregator', nodes: Array.from({length:40}, (_,i) => i + 122),layer:2 },
+  ];
+
+  const offset = FLY_DUR * 1000 + 150;
+  // All 3 proposers activate simultaneously after fly-in
+  setTimeout(() => {
+    DEMO_AGENTS.slice(0,3).forEach(a => activateNodes(a.nodes, a.name));
+    showStatus('layer 1 · analytical · creative · critic');
+  }, offset);
+
+  // Proposers finish at staggered times
+  setTimeout(() => fadeNodes('analytical'), offset + 1400);
+  setTimeout(() => fadeNodes('creative'),   offset + 1800);
+  setTimeout(() => fadeNodes('critic'),     offset + 1600);
+
+  // Aggregator starts after all proposers done
+  setTimeout(() => {
+    activateNodes(DEMO_AGENTS[3].nodes, 'aggregator');
+    showStatus('layer 2 · aggregating…');
+  }, offset + 2100);
+
+  setTimeout(() => beginFade(), offset + 4800);
 }
 
-// ─── Proposer mini-panels ─────────────────────────────────────────────────────
-function clearProposerPanels() {
-  ['analytical', 'creative', 'critic'].forEach(name => {
-    const p = document.getElementById(`prop-${name}`);
-    if (p) p.textContent = '';
+// ── Edge colour update ────────────────────────────────────────────────────────
+function updateEdges() {
+  const col = edgeGeo.attributes.color.array;
+  edges.forEach(([a, b], i) => {
+    const A = nodeStates[a], B = nodeStates[b];
+    let r, g, bl;
+
+    if (A.glowActive && B.glowActive && A.agent && A.agent === B.agent) {
+      const c = AGENT_COLOR[A.agent];
+      const t = Math.min(A.glowT, B.glowT);
+      const k = Math.min(t / 0.6, 1) * 0.38;
+      r = c.r * k; g = c.g * k; bl = c.b * k;
+    } else {
+      [r, g, bl] = DORMANT_EDGE;
+    }
+    col.set([r, g, bl, r, g, bl], i * 6);
   });
+  edgeGeo.attributes.color.needsUpdate = true;
 }
 
-function appendProposerToken(agent, text) {
-  const el = document.getElementById(`prop-${agent}`);
-  if (!el) return;
-  el.textContent += text;
-  const scroll = document.getElementById(`prop-${agent}-scroll`);
-  if (scroll) scroll.scrollTop = scroll.scrollHeight;
-}
+// ── Render loop ───────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
 
-function showStatus(msg) {
-  const el = document.getElementById('status-line');
-  el.textContent = msg;
-  el.style.opacity = '1';
-}
-function hideStatus() {
-  const el = document.getElementById('status-line');
-  el.style.opacity = '0';
-}
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  controls.update();
 
-// ─── Draw ─────────────────────────────────────────────────────────────────────
-function drawFrame(timestamp) {
-  requestAnimationFrame(drawFrame);
+  if (STATE !== 'idle') elapsed += dt;
 
-  if (!lastTime) lastTime = timestamp;
-  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
-  lastTime = timestamp;
+  // Flying: prompt sphere moves from outside to center
+  if (STATE === 'flying') {
+    const prog = Math.min(elapsed / FLY_DUR, 1);
+    const e = easeInOut(prog);
+    promptMesh.position.lerpVectors(PROMPT_START, PROMPT_END, e);
+    promptLight.position.copy(promptMesh.position);
+    promptMesh.scale.setScalar(1 - e * 0.45);
+    if (prog >= 1) { STATE = 'processing'; elapsed = 0; }
+  }
 
-  camAngleY += 0.003;
+  // Processing: prompt sphere pulses at center
+  if (STATE === 'processing') {
+    const pulse = 0.48 + 0.18 * Math.sin(elapsed * 5.2);
+    promptMesh.scale.setScalar(pulse);
+    promptMat.emissiveIntensity = 1.6 + 0.55 * Math.sin(elapsed * 5.2);
+    promptLight.intensity = 2.2 + 0.8 * Math.sin(elapsed * 5.2);
+    promptLight.position.copy(PROMPT_END);
+  }
 
-  if (STATE !== 'idle') {
-    elapsed += dt;
-    if (STATE === 'flying' && elapsed >= FLY_DURATION) {
-      STATE = 'processing';
-      elapsed = 0;
-      showStatus('processing...');
+  // Fading: everything winds down
+  if (STATE === 'fading') {
+    const f = Math.max(0, 1 - elapsed / FADE_DUR);
+    promptMat.opacity           = f;
+    promptMat.emissiveIntensity = f * 1.8;
+    promptLight.intensity       = f * 2.2;
+    if (elapsed >= FADE_DUR) {
+      STATE = 'idle'; elapsed = 0;
+      resetAll();
+      hideStatus();
+      promptMat.opacity = 0;
+      promptLight.intensity = 0;
     }
-    if (STATE === 'processing') {
-      // Nodes are activated by WS events (activateNode); just advance glow timers
-      nodeState.forEach(ns => {
-        if (ns.glowActive) ns.glowT += dt;
-      });
-    }
-    if (STATE === 'fading') {
-      if (elapsed >= FADE_DURATION) {
-        STATE = 'idle';
-        elapsed = 0;
-        resetNodes();
-        hideStatus();
+  }
+
+  // Node glow animation — only active while LLM is running
+  const fadeScale = STATE === 'fading' ? Math.max(0, 1 - elapsed / FADE_DUR) : 1;
+
+  nodeStates.forEach(ns => {
+    if (!ns.glowActive) {
+      if (ns.mat.emissiveIntensity > 0) {
+        ns.mat.emissiveIntensity = Math.max(0, ns.mat.emissiveIntensity - dt * 3);
+        if (ns.mat.emissiveIntensity <= 0) ns.mesh.scale.setScalar(1);
       }
-    }
-  }
-
-  // ── Render ──
-  const c = ctx2d;
-  c.clearRect(0, 0, W, H);
-
-  // Sort all projected items by z for depth ordering
-  const projVerts = verts.map((v,i) => {
-    const p = project(v.x, v.y, v.z);
-    return {p, i};
-  });
-
-  // Draw edges
-  edges.forEach(([a,b]) => {
-    const pa = projVerts[a].p, pb = projVerts[b].p;
-    if (!pa || !pb) return;
-    const nsA = nodeState[a], nsB = nodeState[b];
-    const bothGlow = nsA.glowActive && nsB.glowActive;
-    const fadeF = STATE === 'fading' ? Math.max(0, 1 - elapsed/FADE_DURATION) : 1;
-
-    if (bothGlow) {
-      const g = Math.min(nsA.glowT, nsB.glowT);
-      const intensity = Math.min(g / 0.5, 1) * fadeF;
-      const pulse = 0.4 + Math.sin(timestamp*0.003 + nsA.phaseOff) * 0.3;
-      // Use the color of whichever agent is "more processed" (higher glowT)
-      const edgeAgent = nsA.glowT >= nsB.glowT ? nsA.agent : nsB.agent;
-      c.strokeStyle = agentColor(edgeAgent, intensity * pulse * 0.7, 'core');
-      c.lineWidth = 1.2 * pa.scale * 200 / SPHERE_R;
-    } else {
-      const depth = (pa.z + pb.z) / 2;
-      const dAlpha = Math.max(0.08, Math.min(0.35, 0.2 + depth / 600));
-      c.strokeStyle = `rgba(60,90,140,${dAlpha})`;
-      c.lineWidth = 0.6;
+      return;
     }
 
-    c.beginPath();
-    c.moveTo(pa.sx, pa.sy);
-    c.lineTo(pb.sx, pb.sy);
-    c.stroke();
-  });
-
-  // Draw nodes (sorted back-to-front for glow layering)
-  const sortedVerts = [...projVerts].sort((a,b) => (a.p?.z||0) - (b.p?.z||0));
-
-  sortedVerts.forEach(({p, i}) => {
-    if (!p) return;
-    const ns = nodeState[i];
-    const r = 3.5 * p.scale * 200 / SPHERE_R;
-    const fadeF = STATE === 'fading' ? Math.max(0, 1 - elapsed/FADE_DURATION) : 1;
-
-    if (ns.glowActive && ns.glowT > 0) {
-      const progress = Math.min(ns.glowT / 0.4, 1);
-      const pulse = 0.7 + Math.sin(ns.glowT * 4 + ns.phaseOff) * 0.3;
-      const alpha = progress * pulse * fadeF;
-
-      // Outer halo — agent color
-      const haloR = r * (3.5 + Math.sin(ns.glowT*3 + ns.phaseOff)*0.5);
-      const halo = c.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, haloR);
-      halo.addColorStop(0,   agentColor(ns.agent, alpha * 0.65, 'core'));
-      halo.addColorStop(0.4, agentColor(ns.agent, alpha * 0.25, 'halo'));
-      halo.addColorStop(1,   agentColor(ns.agent, 0,            'halo'));
-      c.fillStyle = halo;
-      c.beginPath();
-      c.arc(p.sx, p.sy, haloR, 0, Math.PI*2);
-      c.fill();
-
-      // Core node
-      const grad = c.createRadialGradient(p.sx-r*0.3, p.sy-r*0.3, 0, p.sx, p.sy, r);
-      grad.addColorStop(0,   agentColor(ns.agent, alpha,        'core').replace('rgba','rgba').replace(/,[\d.]+\)/, `,${alpha})`));
-      grad.addColorStop(0,   `rgba(230,240,255,${alpha})`);
-      grad.addColorStop(0.5, agentColor(ns.agent, alpha * 0.9,  'core'));
-      grad.addColorStop(1,   agentColor(ns.agent, alpha * 0.7,  'halo'));
-      c.fillStyle = grad;
-      c.beginPath();
-      c.arc(p.sx, p.sy, r * (1 + progress * 0.3), 0, Math.PI*2);
-      c.fill();
-    } else {
-      // Dormant node
-      const depth = Math.max(0, Math.min(1, (p.z + SPHERE_R) / (SPHERE_R * 2)));
-      const baseAlpha = 0.3 + depth * 0.5;
-      c.fillStyle = `rgba(100,140,200,${baseAlpha})`;
-      c.beginPath();
-      c.arc(p.sx, p.sy, r, 0, Math.PI*2);
-      c.fill();
-    }
-  });
-
-  // Draw prompt sphere
-  if (STATE === 'flying' || STATE === 'processing' || STATE === 'fading') {
-    let px, py, pz, pAlpha, pRadius;
-
-    if (STATE === 'flying') {
-      const t = easeInOut(Math.min(elapsed / FLY_DURATION, 1));
-      px = lerp(PROMPT_START.x, PROMPT_TARGET.x, t);
-      py = lerp(PROMPT_START.y, PROMPT_TARGET.y, t);
-      pz = lerp(PROMPT_START.z, PROMPT_TARGET.z, t);
-      pAlpha = 1;
-      pRadius = lerp(22, 14, t);
-    } else if (STATE === 'processing') {
-      px = 0; py = 0; pz = 0;
-      const pulse = 0.9 + Math.sin(elapsed * 5) * 0.12;
-      pAlpha = 0.85;
-      pRadius = 14 * pulse;
-    } else {
-      // fading
-      px = 0; py = 0; pz = 0;
-      pAlpha = Math.max(0, 1 - elapsed / FADE_DURATION);
-      pRadius = 14;
-    }
-
-    const pp = project(px, py, pz);
-    if (pp) {
-      // Outer glow ring
-      const glowR = pRadius * 2.8 * pp.scale * 200 / SPHERE_R;
-      const glow = ctx2d.createRadialGradient(pp.sx, pp.sy, 0, pp.sx, pp.sy, glowR);
-      glow.addColorStop(0, `rgba(80,255,80,${pAlpha * 0.5})`);
-      glow.addColorStop(0.3, `rgba(50,200,50,${pAlpha * 0.2})`);
-      glow.addColorStop(1, `rgba(20,120,20,0)`);
-      ctx2d.fillStyle = glow;
-      ctx2d.beginPath();
-      ctx2d.arc(pp.sx, pp.sy, glowR, 0, Math.PI*2);
-      ctx2d.fill();
-
-      // Core green sphere
-      const coreR = pRadius * pp.scale * 200 / SPHERE_R;
-      const grad = ctx2d.createRadialGradient(
-        pp.sx - coreR*0.35, pp.sy - coreR*0.35, 0,
-        pp.sx, pp.sy, coreR
-      );
-      grad.addColorStop(0, `rgba(200,255,180,${pAlpha})`);
-      grad.addColorStop(0.4, `rgba(80,230,80,${pAlpha})`);
-      grad.addColorStop(1, `rgba(30,160,30,${pAlpha * 0.8})`);
-      ctx2d.fillStyle = grad;
-      ctx2d.beginPath();
-      ctx2d.arc(pp.sx, pp.sy, coreR, 0, Math.PI*2);
-      ctx2d.fill();
-
-      // Dashed trail when flying
-      if (STATE === 'flying') {
-        const t = Math.min(elapsed / FLY_DURATION, 1);
-        const trailStartP = project(PROMPT_START.x, PROMPT_START.y, PROMPT_START.z);
-        if (trailStartP) {
-          ctx2d.strokeStyle = `rgba(80,220,80,0.35)`;
-          ctx2d.lineWidth = 1.5;
-          ctx2d.setLineDash([8, 10]);
-          ctx2d.beginPath();
-          ctx2d.moveTo(trailStartP.sx, trailStartP.sy);
-          ctx2d.lineTo(pp.sx, pp.sy);
-          ctx2d.stroke();
-          ctx2d.setLineDash([]);
-        }
+    if (ns.fadingOut) {
+      ns.glowT = Math.max(0, ns.glowT - dt * 1.6);
+      if (ns.glowT <= 0) {
+        ns.glowActive = false;
+        ns.agent = null;
+        ns.mat.emissiveIntensity = 0;
+        ns.mesh.scale.setScalar(1);
+        return;
       }
+    } else {
+      ns.glowT += dt;
     }
-  }
+
+    const progress  = Math.min(ns.glowT / 0.55, 1);
+    const pulse     = 0.72 + 0.32 * Math.sin(ns.glowT * 3.8 + ns.phaseOff);
+    ns.mat.emissiveIntensity = progress * pulse * fadeScale;
+    ns.mesh.scale.setScalar(1 + progress * 0.22);
+  });
+
+  updateEdges();
+  composer.render();
 }
 
-requestAnimationFrame(drawFrame);
+animate();
 
-// ─── Mouse drag to rotate ────────────────────────────────────────────────────
-let dragging = false, dragX = 0, dragY = 0;
-canvas.addEventListener('mousedown', e => { dragging = true; dragX = e.clientX; dragY = e.clientY; });
-window.addEventListener('mouseup', () => { dragging = false; });
-window.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  camAngleY += (e.clientX - dragX) * 0.005;
-  camAngleX += (e.clientY - dragY) * 0.005;
-  camAngleX = Math.max(-1.2, Math.min(1.2, camAngleX));
-  dragX = e.clientX; dragY = e.clientY;
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
-// ─── UI wiring ────────────────────────────────────────────────────────────────
+// ── Input ─────────────────────────────────────────────────────────────────────
 document.getElementById('send-btn').addEventListener('click', startAnimation);
 document.getElementById('prompt-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') startAnimation();
-});
-
-window.addEventListener('resize', () => {
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W; canvas.height = H;
 });
 </script>
 </body>
