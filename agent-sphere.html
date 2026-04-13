@@ -400,6 +400,79 @@ const AGENT_COLOR = {
   aggregator:  new THREE.Color(0.28, 0.90, 0.55),   // green  — Groq llama (agg)
 };
 
+// ── Neural Network ────────────────────────────────────────────────────────────
+// Precompute adjacency lists so each neuron knows its connected edges + neighbours
+const adjacency = verts.map(() => []);
+edges.forEach(([a, b], ei) => {
+  adjacency[a].push({ ei, nb: b });
+  adjacency[b].push({ ei, nb: a });
+});
+
+// Learnable parameters — random initialisation
+const edgeW = new Float32Array(edges.length);  // weight  wᵢ  per edge
+const nodeB = new Float32Array(verts.length);  // bias    bᵢ  per neuron
+edges.forEach((_, i) => { edgeW[i] = (Math.random() - 0.5) * 1.0; });
+verts.forEach((_, i)  => { nodeB[i] = (Math.random() - 0.5) * 0.25; });
+
+const act    = new Float32Array(verts.length); // activation a[i] for every neuron
+const σ      = x => Math.tanh(x);             // smooth, bounded [-1, 1]
+const INPUT_N = 28;                            // first N nodes form the input layer
+
+// Encode prompt text → input-layer activations.
+// Characters are normalised ASCII → [-1, 1]; the last 4 slots carry structural
+// features (length, words, questions, exclamations) so different prompts always
+// produce measurably different activation patterns across the network.
+function encodePrompt(text) {
+  const inp = new Float32Array(verts.length);
+  for (let i = 0; i < Math.min(text.length, INPUT_N - 4); i++) {
+    inp[i] = (text.charCodeAt(i) / 127) * 2 - 1;
+  }
+  inp[INPUT_N - 4] = Math.tanh(text.length / 80);
+  inp[INPUT_N - 3] = Math.tanh(text.split(' ').length / 20);
+  inp[INPUT_N - 2] = Math.tanh((text.match(/\?/g) || []).length);
+  inp[INPUT_N - 1] = Math.tanh((text.match(/!/g)  || []).length);
+  return inp;
+}
+
+// One forward pass: a[i] = σ( Σ wᵢⱼ · a[j] + b[i] )  for all i ≥ INPUT_N.
+// Input neurons are clamped to their encoded values each pass.
+function forwardPass(inp) {
+  const next = new Float32Array(verts.length);
+  for (let i = 0; i < INPUT_N; i++) next[i] = inp[i];
+  for (let i = INPUT_N; i < verts.length; i++) {
+    let sum = nodeB[i];
+    for (const { ei, nb } of adjacency[i]) sum += edgeW[ei] * act[nb];
+    next[i] = σ(sum);
+  }
+  act.set(next);
+}
+
+// Hebbian weight update after each completed run:
+//   fire together → wire together, plus weight decay for stability.
+function learnStep(lr = 0.018) {
+  edges.forEach(([a, b], i) => {
+    edgeW[i] += lr * act[a] * act[b];
+    edgeW[i] *= 0.995;
+    edgeW[i]  = Math.max(-2, Math.min(2, edgeW[i]));
+  });
+}
+
+let nnActive = false, nnTimer = 0, nnInp = new Float32Array(verts.length);
+const NN_DT  = 0.07;  // run one forward pass every 70 ms during processing
+
+function startNN(text) {
+  nnInp = encodePrompt(text);
+  act.fill(0);
+  for (let i = 0; i < INPUT_N; i++) act[i] = nnInp[i];
+  // Pre-warm: propagate through the full network so activations are non-zero
+  // by the time the first agent_start event arrives from the server.
+  for (let r = 0; r < 10; r++) forwardPass(nnInp);
+  nnActive = true;
+  nnTimer  = 0;
+}
+
+function stopNN() { learnStep(); nnActive = false; }
+
 // ── Node meshes ───────────────────────────────────────────────────────────────
 // Small spheres — only glow when their agent is actively running
 const nodeGeo = new THREE.SphereGeometry(0.042, 6, 6);
@@ -463,8 +536,9 @@ const PROMPT_END   = new THREE.Vector3(0, 0, 0);
 promptMesh.position.copy(PROMPT_START);
 
 // ── Animation state ───────────────────────────────────────────────────────────
-let STATE   = 'idle'; // idle | flying | processing | fading
-let elapsed = 0;
+let STATE      = 'idle'; // idle | flying | processing | fading
+let elapsed    = 0;
+let lastPrompt = '';
 const FLY_DUR  = 1.15;
 const FADE_DUR = 2.0;
 const easeInOut = t => t < .5 ? 2*t*t : -1 + (4 - 2*t)*t;
@@ -502,6 +576,7 @@ function beginFly() {
   if (STATE !== 'idle') return;
   STATE = 'flying'; elapsed = 0;
   resetAll();
+  startNN(lastPrompt);
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
   promptMat.emissiveIntensity = 2.2;
@@ -512,6 +587,7 @@ function beginFly() {
 
 function beginFade() {
   STATE = 'fading'; elapsed = 0;
+  stopNN();
   showStatus('complete');
   setTimeout(() => { document.getElementById('send-btn').disabled = false; }, FADE_DUR * 1000);
 }
@@ -668,6 +744,7 @@ connectWS();
 function startAnimation() {
   const text = document.getElementById('prompt-input').value.trim();
   if (!text) return;
+  lastPrompt = text;
 
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'prompt', text }));
@@ -717,7 +794,10 @@ function updateEdges() {
     if (A.glowActive && B.glowActive && A.agent && A.agent === B.agent) {
       const c = AGENT_COLOR[A.agent];
       const t = Math.min(A.glowT, B.glowT);
-      const k = Math.min(t / 0.6, 1) * 0.38;
+      // Weight magnitude modulates how brightly this synapse conducts signal.
+      // Strong weights (|w|→2) are 30% brighter than weak weights (|w|→0).
+      const wScale = 0.7 + 0.3 * Math.min(Math.abs(edgeW[i]) / 1.5, 1);
+      const k = Math.min(t / 0.6, 1) * 0.38 * wScale;
       r = c.r * k; g = c.g * k; bl = c.b * k;
     } else {
       [r, g, bl] = DORMANT_EDGE;
@@ -736,6 +816,12 @@ function animate() {
   controls.update();
 
   if (STATE !== 'idle') elapsed += dt;
+
+  // Tick neural network forward pass (runs continuously while processing)
+  if (nnActive) {
+    nnTimer += dt;
+    if (nnTimer >= NN_DT) { forwardPass(nnInp); nnTimer = 0; }
+  }
 
   // Flying: prompt sphere moves from outside to center
   if (STATE === 'flying') {
@@ -771,10 +857,10 @@ function animate() {
     }
   }
 
-  // Node glow animation — only active while LLM is running
+  // Node glow animation — intensity driven by real neuron activation a[i]
   const fadeScale = STATE === 'fading' ? Math.max(0, 1 - elapsed / FADE_DUR) : 1;
 
-  nodeStates.forEach(ns => {
+  nodeStates.forEach((ns, ni) => {
     if (!ns.glowActive) {
       if (ns.mat.emissiveIntensity > 0) {
         ns.mat.emissiveIntensity = Math.max(0, ns.mat.emissiveIntensity - dt * 3);
@@ -798,8 +884,12 @@ function animate() {
 
     const progress  = Math.min(ns.glowT / 0.55, 1);
     const pulse     = 0.72 + 0.32 * Math.sin(ns.glowT * 3.8 + ns.phaseOff);
-    ns.mat.emissiveIntensity = progress * pulse * fadeScale;
-    ns.mesh.scale.setScalar(1 + progress * 0.22);
+    // Core formula: a = σ(Σ wᵢxᵢ + b) — use |activation| to modulate glow.
+    // Blend 20% baseline so even low-activation neurons show their agent colour;
+    // high-activation neurons (|a|→1) glow at full intensity.
+    const neuronAct = 0.20 + 0.80 * Math.abs(act[ni]);
+    ns.mat.emissiveIntensity = progress * pulse * neuronAct * fadeScale;
+    ns.mesh.scale.setScalar(1 + progress * neuronAct * 0.28);
   });
 
   updateEdges();
