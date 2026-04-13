@@ -191,23 +191,45 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 # ── Web research (Layer 0) ────────────────────────────────────────────────────
+_search_cache: dict[str, tuple[str, list]] = {}
+
 async def web_research(query: str) -> tuple[str, list[dict]]:
-    """Fetch live web + news results via DuckDuckGo (no API key required)."""
+    """Fetch live web + news results via DuckDuckGo. Caches results per query."""
+    cache_key = query.strip().lower()
+    if cache_key in _search_cache:
+        print(f"[research] cache hit for: {query!r}")
+        return _search_cache[cache_key]
+
     def _search():
         results = []
-        try:
-            results += list(DDGS().text(query, max_results=8))
-        except Exception as e:
-            print(f"[research] text search error: {e}")
-        try:
-            for r in DDGS().news(query, max_results=8):
-                results.append({
-                    "title": r.get("title", ""),
-                    "body":  r.get("body", r.get("excerpt", "")),
-                    "href":  r.get("url", r.get("href", "")),
-                })
-        except Exception as e:
-            print(f"[research] news search error: {e}")
+        # Retry up to 3 times with increasing delays to handle rate limits
+        for attempt in range(3):
+            try:
+                import time
+                if attempt > 0:
+                    time.sleep(2 ** attempt)
+                hits = list(DDGS().text(query, max_results=8))
+                if hits:
+                    results += hits
+                    break
+            except Exception as e:
+                print(f"[research] text attempt {attempt+1} error: {e}")
+
+        for attempt in range(3):
+            try:
+                import time
+                if attempt > 0:
+                    time.sleep(2 ** attempt)
+                for r in DDGS().news(query, max_results=8):
+                    results.append({
+                        "title": r.get("title", ""),
+                        "body":  r.get("body", r.get("excerpt", "")),
+                        "href":  r.get("url", r.get("href", "")),
+                    })
+                break
+            except Exception as e:
+                print(f"[research] news attempt {attempt+1} error: {e}")
+
         return results
 
     raw = await asyncio.get_event_loop().run_in_executor(None, _search)
@@ -223,7 +245,9 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
         source = r.get("href", "")
         lines.append(f"[Source {i}] {title}\n{body}\nURL: {source}")
 
-    return "\n\n".join(lines), raw
+    result = "\n\n".join(lines), raw
+    _search_cache[cache_key] = result
+    return result
 
 
 # ── Agent runners ─────────────────────────────────────────────────────────────
