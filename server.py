@@ -53,7 +53,7 @@ CLIENTS = {
 LAYER1_AGENTS = [
     {
         "name":      "analytical",
-        "nodes":     list(range(0, 20)),
+        "nodes":     list(range(0, 33)),    # 70B → 33 nodes
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
@@ -65,7 +65,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "creative",
-        "nodes":     list(range(20, 40)),
+        "nodes":     list(range(33, 37)),   # 8B  → 4 nodes
         "provider":  "groq",
         "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
@@ -77,7 +77,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "critic",
-        "nodes":     list(range(40, 60)),
+        "nodes":     list(range(37, 70)),   # 70B → 33 nodes
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
@@ -89,7 +89,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "visionary",
-        "nodes":     list(range(60, 80)),
+        "nodes":     list(range(70, 79)),   # ~20B → 9 nodes
         "provider":  "gemini",
         "model":     "gemini-2.0-flash",
         "max_tokens": 200,
@@ -101,7 +101,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "contrarian",
-        "nodes":     list(range(80, 100)),
+        "nodes":     list(range(79, 112)),  # 70B → 33 nodes
         "provider":  "openrouter",
         "model":     "deepseek/deepseek-r1-distill-llama-70b:free",
         "max_tokens": 200,
@@ -113,7 +113,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "reasoning",
-        "nodes":     list(range(100, 120)),
+        "nodes":     list(range(112, 125)), # 27B → 13 nodes
         "provider":  "openrouter",
         "model":     "google/gemma-3-27b-it:free",
         "max_tokens": 200,
@@ -125,7 +125,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "pragmatist",
-        "nodes":     list(range(120, 140)),
+        "nodes":     list(range(125, 128)), # 7B  → 3 nodes
         "provider":  "openrouter",
         "model":     "mistralai/mistral-7b-instruct:free",
         "max_tokens": 200,
@@ -139,7 +139,7 @@ LAYER1_AGENTS = [
 
 LAYER2_AGENT = {
     "name":      "aggregator",
-    "nodes":     list(range(140, 162)),   # 22 nodes
+    "nodes":     list(range(128, 162)),   # 70B → 34 nodes
     "provider":  "groq",
     "model":     "llama-3.3-70b-versatile",
     "max_tokens": 1024,

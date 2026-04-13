@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.0.1</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.1.0</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -473,15 +473,38 @@ function startNN(text) {
 
 function stopNN() { learnStep(); nnActive = false; }
 
+// ── Node → agent mapping (proportional to model parameter count) ──────────────
+// Total 162 nodes split by model size: 70B→33, 8B→4, 70B→33, 20B→9,
+//                                       70B→33, 27B→13, 7B→3, 70B→34
+const AGENT_RANGES = [
+  { name: 'analytical', start:   0, end:  33 },  // llama-3.3-70b  (70B)
+  { name: 'creative',   start:  33, end:  37 },  // llama-3.1-8b   (8B)
+  { name: 'critic',     start:  37, end:  70 },  // llama-3.3-70b  (70B)
+  { name: 'visionary',  start:  70, end:  79 },  // gemini-2.0-flash (~20B)
+  { name: 'contrarian', start:  79, end: 112 },  // deepseek-r1-70b (70B)
+  { name: 'reasoning',  start: 112, end: 125 },  // gemma-3-27b    (27B)
+  { name: 'pragmatist', start: 125, end: 128 },  // mistral-7b     (7B)
+  { name: 'aggregator', start: 128, end: 162 },  // llama-3.3-70b  (70B, layer 2)
+];
+const NODE_AGENT = new Array(verts.length);
+AGENT_RANGES.forEach(({ name, start, end }) => {
+  for (let i = start; i < end; i++) NODE_AGENT[i] = name;
+});
+
+const DIM_GLOW = 0.07;  // constant baseline — below bloom threshold (0.28)
+
 // ── Node meshes ───────────────────────────────────────────────────────────────
-// Small spheres — only glow when their agent is actively running
+// Each node permanently shows a dim emission in its agent's colour;
+// intensity scales up to full brightness when that agent is actively running.
 const nodeGeo = new THREE.SphereGeometry(0.042, 6, 6);
 
-const nodeStates = verts.map(pos => {
+const nodeStates = verts.map((pos, i) => {
+  const baseAgent = NODE_AGENT[i];
+  const baseColor = (AGENT_COLOR[baseAgent] ?? new THREE.Color(0.2, 0.2, 0.2)).clone();
   const mat = new THREE.MeshStandardMaterial({
     color:             new THREE.Color(0x0b1521),
-    emissive:          new THREE.Color(0, 0, 0),
-    emissiveIntensity: 0,
+    emissive:          baseColor,
+    emissiveIntensity: DIM_GLOW,
     roughness:         0.45,
     metalness:         0.55,
   });
@@ -490,6 +513,8 @@ const nodeStates = verts.map(pos => {
   scene.add(mesh);
   return {
     mesh, mat,
+    baseAgent,
+    baseColor,
     glowT:      0,
     glowActive: false,
     fadingOut:  false,
@@ -577,7 +602,8 @@ function fadeNodes(agent) {
 function resetAll() {
   nodeStates.forEach(ns => {
     ns.glowT = 0; ns.glowActive = false; ns.fadingOut = false; ns.agent = null;
-    ns.mat.emissiveIntensity = 0;
+    ns.mat.emissive.copy(ns.baseColor);
+    ns.mat.emissiveIntensity = DIM_GLOW;
     ns.mesh.scale.setScalar(1);
   });
   ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist','aggregator'].forEach(a => setIndicator(a, false));
@@ -845,10 +871,10 @@ function animate() {
 
   nodeStates.forEach((ns, ni) => {
     if (!ns.glowActive) {
-      if (ns.mat.emissiveIntensity > 0) {
-        ns.mat.emissiveIntensity = Math.max(0, ns.mat.emissiveIntensity - dt * 3);
-        if (ns.mat.emissiveIntensity <= 0) ns.mesh.scale.setScalar(1);
-      }
+      // Fade back to dim baseline (not full dark) — node always shows its agent colour
+      ns.mat.emissive.copy(ns.baseColor);
+      ns.mat.emissiveIntensity += (DIM_GLOW - ns.mat.emissiveIntensity) * Math.min(dt * 5, 1);
+      if (ns.mesh.scale.x > 1) ns.mesh.scale.setScalar(1);
       return;
     }
 
@@ -857,7 +883,8 @@ function animate() {
       if (ns.glowT <= 0) {
         ns.glowActive = false;
         ns.agent = null;
-        ns.mat.emissiveIntensity = 0;
+        ns.mat.emissive.copy(ns.baseColor);
+        ns.mat.emissiveIntensity = DIM_GLOW;
         ns.mesh.scale.setScalar(1);
         return;
       }
@@ -867,11 +894,9 @@ function animate() {
 
     const progress  = Math.min(ns.glowT / 0.55, 1);
     const pulse     = 0.72 + 0.32 * Math.sin(ns.glowT * 3.8 + ns.phaseOff);
-    // Core formula: a = σ(Σ wᵢxᵢ + b) — use |activation| to modulate glow.
-    // Blend 20% baseline so even low-activation neurons show their agent colour;
-    // high-activation neurons (|a|→1) glow at full intensity.
+    // a = σ(Σ wᵢxᵢ + b): activation modulates intensity above the dim baseline.
     const neuronAct = 0.20 + 0.80 * Math.abs(act[ni]);
-    ns.mat.emissiveIntensity = progress * pulse * neuronAct * fadeScale;
+    ns.mat.emissiveIntensity = DIM_GLOW + progress * pulse * neuronAct * fadeScale;
     ns.mesh.scale.setScalar(1 + progress * neuronAct * 0.28);
   });
 
