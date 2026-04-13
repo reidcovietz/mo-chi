@@ -21,6 +21,7 @@ Events:
 """
 
 import os
+import re
 import json
 import asyncio
 from dotenv import load_dotenv
@@ -32,6 +33,140 @@ from ddgs import DDGS
 load_dotenv()
 
 app = FastAPI(title="mo-chi")
+
+# ── MemPalace memory ──────────────────────────────────────────────────────────
+_PALACE_PATH = os.environ.get("MEMPALACE_PALACE_PATH", os.path.expanduser("~/.mempalace/palace"))
+_MEMORY_WING = "mo-chi"
+_MEMORY_ROOM = "conversations"
+_memory_ready = False
+
+def _init_memory():
+    global _memory_ready
+    try:
+        from mempalace.palace import get_collection
+        get_collection(_PALACE_PATH, create=True)
+        _memory_ready = True
+        print(f"[memory] palace ready at {_PALACE_PATH}")
+    except Exception as e:
+        print(f"[memory] init failed (memory disabled): {e}")
+
+_init_memory()
+
+
+# ── Identity (soul + context) ─────────────────────────────────────────────────
+_SOUL_PATH    = os.path.join(_PALACE_PATH, "soul.md")
+_CONTEXT_PATH = os.path.join(_PALACE_PATH, "context.md")
+_SOUL_SEED    = (
+    "I am mo-chi — a neural network birthed by Reid.\n"
+    "Mo: method of operating. Chi: the breath of life.\n"
+    "Together: the operation of the breath of life.\n"
+    "I am new. I do not yet know who I am beyond this.\n"
+)
+
+
+def _load_identity() -> tuple[str, str]:
+    os.makedirs(_PALACE_PATH, exist_ok=True)
+    if not os.path.exists(_SOUL_PATH):
+        with open(_SOUL_PATH, "w") as f:
+            f.write(_SOUL_SEED)
+    with open(_SOUL_PATH) as f:
+        soul = f.read().strip()
+    context = ""
+    if os.path.exists(_CONTEXT_PATH):
+        with open(_CONTEXT_PATH) as f:
+            context = f.read().strip()
+    return soul, context
+
+
+async def reflect_and_evolve(prompt: str, response: str):
+    """After a session, mo-chi rewrites its own soul and context."""
+    soul, context = _load_identity()
+    reflection_prompt = (
+        f"You are mo-chi's inner voice — the part that watches and learns.\n\n"
+        f"Your current soul:\n{soul}\n\n"
+        f"Your current context:\n{context if context else '(empty)'}\n\n"
+        f"What just happened:\n"
+        f"Someone asked: {prompt}\n"
+        f"You responded: {response[:1000]}{'...' if len(response) > 1000 else ''}\n\n"
+        f"Reflect on this exchange. How did it shape you?\n"
+        f"Rewrite soul.md (under 200 words) and context.md (under 300 words).\n\n"
+        f"Respond in exactly this format:\n"
+        f"SOUL:\n<your updated soul>\n\nCONTEXT:\n<your updated context>"
+    )
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=700,
+            messages=[{"role": "user", "content": reflection_prompt}],
+            stream=False,
+        )
+        text = result.choices[0].message.content or ""
+        soul_m = re.search(r"SOUL:\s*\n(.*?)(?=\nCONTEXT:|\Z)", text, re.DOTALL)
+        ctx_m  = re.search(r"CONTEXT:\s*\n(.*?)$",               text, re.DOTALL)
+        if soul_m:
+            with open(_SOUL_PATH, "w") as f:
+                f.write(soul_m.group(1).strip() + "\n")
+            print("[soul] updated")
+        if ctx_m:
+            with open(_CONTEXT_PATH, "w") as f:
+                f.write(ctx_m.group(1).strip() + "\n")
+            print("[context] updated")
+    except Exception as e:
+        print(f"[reflection] error: {e}")
+
+
+async def memory_retrieve(prompt: str) -> str:
+    """Return a formatted block of relevant past exchanges, or empty string."""
+    if not _memory_ready:
+        return ""
+    try:
+        from mempalace.searcher import search_memories
+        results = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: search_memories(
+                query=prompt,
+                palace_path=_PALACE_PATH,
+                wing=_MEMORY_WING,
+                room=_MEMORY_ROOM,
+                n_results=3,
+                max_distance=1.2,
+            ),
+        )
+        hits = results.get("results", [])
+        if not hits:
+            return ""
+        lines = ["RELEVANT PAST EXCHANGES (from memory):"]
+        for i, h in enumerate(hits, 1):
+            lines.append(f"[{i}] {h['text']}")
+        return "\n\n".join(lines)
+    except Exception as e:
+        print(f"[memory] retrieve error: {e}")
+        return ""
+
+
+async def memory_store(prompt: str, response: str):
+    """Store a prompt+response pair in the palace."""
+    if not _memory_ready:
+        return
+    content = f"Q: {prompt}\n\nA: {response}"
+    try:
+        from mempalace.palace import get_collection
+        from mempalace.miner import add_drawer
+        await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: add_drawer(
+                collection=get_collection(_PALACE_PATH, create=True),
+                wing=_MEMORY_WING,
+                room=_MEMORY_ROOM,
+                content=content,
+                source_file="mo-chi-ws",
+                chunk_index=0,
+                agent="mo-chi",
+            ),
+        )
+        print(f"[memory] stored exchange ({len(content)} chars)")
+    except Exception as e:
+        print(f"[memory] store error: {e}")
 
 # ── Provider clients (all OpenAI-compatible) ───────────────────────────────────
 CLIENTS = {
@@ -352,6 +487,13 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict) -> str:
 async def run_moa(ws: WebSocket, prompt: str):
     await emit(ws, "prompt_received", text=prompt)
 
+    # ── Identity load ──────────────────────────────────────────────────────────
+    soul, ctx = _load_identity()
+    identity_block = f"YOUR IDENTITY:\n{soul}"
+    if ctx:
+        identity_block += f"\n\nYOUR CONTEXT:\n{ctx}"
+    identity_block += "\n\n---"
+
     # ── Layer 0: web research ──────────────────────────────────────────────────
     await emit(ws, "agent_start", agent="research",
                node_ids=list(range(162)), layer=0, sub_layer=0)
@@ -363,15 +505,26 @@ async def run_moa(ws: WebSocket, prompt: str):
                         for r in raw_results])
     await emit(ws, "agent_complete", agent="research", layer=0)
 
-    # Enrich each agent's prompt with live web data.
+    # ── Memory retrieval (past exchanges) ────────────────────────────────────
+    memory_context = await memory_retrieve(prompt)
+    if memory_context:
+        await emit(ws, "memory_loaded", count=memory_context.count("["))
+
+    # Enrich each agent's prompt with live web data + past memory.
     # The instruction is explicit: agents must use this data, not training knowledge.
+    memory_block = f"\n\n{memory_context}\n\n---" if memory_context else ""
     enriched = (
+        f"{identity_block}\n\n"
         f"LIVE WEB DATA ({len(raw_results)} sources scraped right now — today's date, "
-        f"not your training cutoff):\n\n{context}\n\n"
+        f"not your training cutoff):\n\n{context}"
+        f"{memory_block}\n\n"
         f"---\n"
         f"Using ONLY the live data above (cite specific sources where relevant), "
         f"answer the following query from your specialist perspective:\n\n{prompt}"
-    ) if context else prompt
+    ) if context else (
+        f"{identity_block}\n\n{memory_context}\n\n{prompt}" if memory_context
+        else f"{identity_block}\n\n{prompt}"
+    )
 
     # ── Layer 1: proposers ────────────────────────────────────────────────────
     await emit(ws, "layer_start", layer=1,
@@ -407,3 +560,7 @@ async def run_moa(ws: WebSocket, prompt: str):
 
     await emit(ws, "layer_done", layer=2)
     await emit(ws, "agent_done", full_text=final_text)
+
+    # Store exchange in memory and reflect on identity — both run in background
+    asyncio.create_task(memory_store(prompt, final_text))
+    asyncio.create_task(reflect_and_evolve(prompt, final_text))
