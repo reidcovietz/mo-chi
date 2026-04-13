@@ -192,29 +192,27 @@ async def websocket_endpoint(ws: WebSocket):
 
 # ── Web research (Layer 0) ────────────────────────────────────────────────────
 async def web_research(query: str) -> tuple[str, list[dict]]:
-    """Search web + news in parallel, return (formatted_context, raw_results)."""
+    """Fetch live web + news results via DuckDuckGo (no API key required)."""
     def _search():
+        ddgs    = DDGS()
         results = []
-        with DDGS() as ddgs:
-            # General web results
-            try:
-                results += list(ddgs.text(query, max_results=8))
-            except Exception:
-                pass
-            # Current news
-            try:
-                for r in ddgs.news(query, max_results=8):
-                    results.append({
-                        "title": r.get("title", ""),
-                        "body":  r.get("body", r.get("excerpt", "")),
-                        "href":  r.get("url", r.get("href", "")),
-                        "source": r.get("source", "news"),
-                    })
-            except Exception:
-                pass
+        try:
+            results += list(ddgs.text(query, max_results=8))
+        except Exception as e:
+            print(f"[research] text search error: {e}")
+        try:
+            for r in ddgs.news(query, max_results=8):
+                results.append({
+                    "title": r.get("title", ""),
+                    "body":  r.get("body", r.get("excerpt", "")),
+                    "href":  r.get("url", r.get("href", "")),
+                })
+        except Exception as e:
+            print(f"[research] news search error: {e}")
         return results
 
     raw = await asyncio.get_event_loop().run_in_executor(None, _search)
+    print(f"[research] found {len(raw)} results for: {query!r}")
 
     if not raw:
         return "", []
@@ -223,8 +221,8 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
     for i, r in enumerate(raw, 1):
         title  = r.get("title", "")
         body   = r.get("body", "")
-        source = r.get("href", r.get("source", ""))
-        lines.append(f"[{i}] {title}\n{body}\nSource: {source}")
+        source = r.get("href", "")
+        lines.append(f"[Source {i}] {title}\n{body}\nURL: {source}")
 
     return "\n\n".join(lines), raw
 
@@ -342,10 +340,14 @@ async def run_moa(ws: WebSocket, prompt: str):
                         for r in raw_results])
     await emit(ws, "agent_complete", agent="research", layer=0)
 
-    # Enrich each agent's user prompt with live web context
+    # Enrich each agent's prompt with live web data.
+    # The instruction is explicit: agents must use this data, not training knowledge.
     enriched = (
-        f"[Live Web Research — {len(raw_results)} sources]\n{context}\n\n"
-        f"[Query]\n{prompt}"
+        f"LIVE WEB DATA ({len(raw_results)} sources scraped right now — today's date, "
+        f"not your training cutoff):\n\n{context}\n\n"
+        f"---\n"
+        f"Using ONLY the live data above (cite specific sources where relevant), "
+        f"answer the following query from your specialist perspective:\n\n{prompt}"
     ) if context else prompt
 
     # ── Layer 1: proposers ────────────────────────────────────────────────────
