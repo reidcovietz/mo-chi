@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from openai import AsyncOpenAI
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 load_dotenv()
 
@@ -194,14 +194,13 @@ async def websocket_endpoint(ws: WebSocket):
 async def web_research(query: str) -> tuple[str, list[dict]]:
     """Fetch live web + news results via DuckDuckGo (no API key required)."""
     def _search():
-        ddgs    = DDGS()
         results = []
         try:
-            results += list(ddgs.text(query, max_results=8))
+            results += list(DDGS().text(query, max_results=8))
         except Exception as e:
             print(f"[research] text search error: {e}")
         try:
-            for r in ddgs.news(query, max_results=8):
+            for r in DDGS().news(query, max_results=8):
                 results.append({
                     "title": r.get("title", ""),
                     "body":  r.get("body", r.get("excerpt", "")),
