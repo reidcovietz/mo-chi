@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.4</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.5</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -265,7 +265,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 
 <div id="ui">
   <input id="prompt-input" type="text" placeholder="Enter a prompt…" autocomplete="off"/>
-  <button id="send-btn">SEND</button>
+  <button id="send-btn" disabled>SEND</button>
 </div>
 
 <script type="importmap">
@@ -701,8 +701,8 @@ function connectWS() {
   ws = new WebSocket(`${wsProto}//${location.host}/ws`);
   const dot = document.getElementById('ws-dot');
 
-  ws.onopen  = () => { wsConnected = true;  dot.style.background = '#44ff88'; dot.title = 'connected'; };
-  ws.onclose = () => { wsConnected = false; dot.style.background = '#ff4444'; dot.title = 'disconnected'; setTimeout(connectWS, 3000); };
+  ws.onopen  = () => { wsConnected = true;  dot.style.background = '#44ff88'; dot.title = 'connected';    document.getElementById('send-btn').disabled = false; };
+  ws.onclose = () => { wsConnected = false; dot.style.background = '#ff4444'; dot.title = 'disconnected'; document.getElementById('send-btn').disabled = true;  setTimeout(connectWS, 3000); };
   ws.onerror = () => { wsConnected = false; dot.style.background = '#ff8800'; dot.title = 'error'; };
 
   ws.onmessage = ({ data }) => {
