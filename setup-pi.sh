@@ -29,8 +29,20 @@ sudo systemctl daemon-reload
 sudo systemctl enable mo-chi
 sudo systemctl restart mo-chi
 
+echo "==> Setting up auto-deploy (polls GitHub every minute)..."
+chmod +x "$REPO_DIR/auto-deploy.sh"
+# Allow passwordless sudo for service restart
+SUDOERS_LINE="$(whoami) ALL=(ALL) NOPASSWD: /bin/systemctl restart mo-chi"
+if ! sudo grep -qF "NOPASSWD: /bin/systemctl restart mo-chi" /etc/sudoers; then
+  echo "$SUDOERS_LINE" | sudo tee -a /etc/sudoers > /dev/null
+fi
+# Install cron job (idempotent)
+CRON_JOB="* * * * * $REPO_DIR/auto-deploy.sh >> $REPO_DIR/auto-deploy.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "auto-deploy.sh"; echo "$CRON_JOB" ) | crontab -
+
 echo ""
 echo "==> Done! mo-chi is running and will start on every boot."
 echo "    Check status : sudo systemctl status mo-chi"
 echo "    View logs    : sudo journalctl -u mo-chi -f"
+echo "    Deploy log   : tail -f $REPO_DIR/auto-deploy.log"
 echo "    Open in browser: http://$(hostname -I | awk '{print $1}'):8000"
