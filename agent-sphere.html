@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.5</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.6</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -764,6 +764,7 @@ function startAnimation() {
   }
 
   showStatus('not connected · retrying…');
+  setTimeout(hideStatus, 2500);
 }
 
 // ── Edge colour update ────────────────────────────────────────────────────────
