@@ -79,7 +79,7 @@ LAYER1_AGENTS = [
         "name":      "critic",
         "nodes":     list(range(40, 60)),
         "provider":  "groq",
-        "model":     "llama-3.1-70b-versatile",
+        "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
         "system": (
             "You are a critical evaluation agent. Given a prompt, identify "
@@ -262,17 +262,18 @@ async def run_moa(ws: WebSocket, prompt: str):
         return_exceptions=True,
     )
 
+    layer1_outputs = {}
     for agent, result in zip(LAYER1_AGENTS, results):
         if isinstance(result, Exception):
             await emit(ws, "error", message=f"{agent['name']}: {result}")
-            return
+        else:
+            layer1_outputs[agent["name"]] = result
+
+    if not layer1_outputs:
+        await emit(ws, "error", message="All proposers failed — check API keys and models.")
+        return
 
     await emit(ws, "layer_done", layer=1)
-
-    layer1_outputs = {
-        agent["name"]: result
-        for agent, result in zip(LAYER1_AGENTS, results)
-    }
 
     await emit(ws, "layer_start", layer=2, agents=["aggregator"])
 

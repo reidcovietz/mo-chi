@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.2</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.3</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -751,37 +751,7 @@ function startAnimation() {
     return;
   }
 
-  // Demo fallback (no server) — mimics the real timing
-  clearPanels();
-  beginFly();
-  showStatus('demo mode · no server');
-
-  const DEMO_AGENTS = [
-    { name: 'analytical', nodes: Array.from({length:41}, (_,i) => i),      layer:1 },
-    { name: 'creative',   nodes: Array.from({length:41}, (_,i) => i + 41), layer:1 },
-    { name: 'critic',     nodes: Array.from({length:40}, (_,i) => i + 82), layer:1 },
-    { name: 'aggregator', nodes: Array.from({length:40}, (_,i) => i + 122),layer:2 },
-  ];
-
-  const offset = FLY_DUR * 1000 + 150;
-  // All 3 proposers activate simultaneously after fly-in
-  setTimeout(() => {
-    DEMO_AGENTS.slice(0,3).forEach(a => activateNodes(a.nodes, a.name));
-    showStatus('layer 1 · analytical · creative · critic');
-  }, offset);
-
-  // Proposers finish at staggered times
-  setTimeout(() => fadeNodes('analytical'), offset + 1400);
-  setTimeout(() => fadeNodes('creative'),   offset + 1800);
-  setTimeout(() => fadeNodes('critic'),     offset + 1600);
-
-  // Aggregator starts after all proposers done
-  setTimeout(() => {
-    activateNodes(DEMO_AGENTS[3].nodes, 'aggregator');
-    showStatus('layer 2 · aggregating…');
-  }, offset + 2100);
-
-  setTimeout(() => beginFade(), offset + 4800);
+  showStatus('not connected · retrying…');
 }
 
 // ── Edge colour update ────────────────────────────────────────────────────────
