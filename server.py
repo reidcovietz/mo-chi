@@ -53,6 +53,7 @@ CLIENTS = {
 LAYER1_AGENTS = [
     {
         "name":      "analytical",
+        "sub_layer": 1,
         "nodes":     list(range(0, 33)),    # 70B → 33 nodes
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
@@ -65,6 +66,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "creative",
+        "sub_layer": 2,
         "nodes":     list(range(33, 37)),   # 8B  → 4 nodes
         "provider":  "groq",
         "model":     "llama-3.1-8b-instant",
@@ -77,6 +79,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "critic",
+        "sub_layer": 3,
         "nodes":     list(range(37, 70)),   # 70B → 33 nodes
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
@@ -89,6 +92,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "visionary",
+        "sub_layer": 4,
         "nodes":     list(range(70, 79)),   # ~20B → 9 nodes
         "provider":  "gemini",
         "model":     "gemini-2.0-flash",
@@ -101,6 +105,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "contrarian",
+        "sub_layer": 5,
         "nodes":     list(range(79, 112)),  # 70B → 33 nodes
         "provider":  "openrouter",
         "model":     "deepseek/deepseek-r1-distill-llama-70b:free",
@@ -113,6 +118,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "reasoning",
+        "sub_layer": 6,
         "nodes":     list(range(112, 125)), # 27B → 13 nodes
         "provider":  "openrouter",
         "model":     "google/gemma-3-27b-it:free",
@@ -125,6 +131,7 @@ LAYER1_AGENTS = [
     },
     {
         "name":      "pragmatist",
+        "sub_layer": 7,
         "nodes":     list(range(125, 128)), # 7B  → 3 nodes
         "provider":  "openrouter",
         "model":     "mistralai/mistral-7b-instruct:free",
@@ -215,7 +222,8 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
     await emit(ws, "agent_start",
                agent=agent["name"],
                node_ids=agent["nodes"],
-               layer=1)
+               layer=1,
+               sub_layer=agent.get("sub_layer", 1))
 
     last_err = None
     # Try primary model up to 3 times
@@ -286,10 +294,14 @@ async def run_moa(ws: WebSocket, prompt: str):
     await emit(ws, "layer_start", layer=1,
                agents=[a["name"] for a in LAYER1_AGENTS])
 
-    results = await asyncio.gather(
-        *[run_proposer(ws, agent, prompt) for agent in LAYER1_AGENTS],
-        return_exceptions=True,
-    )
+    # Stagger task creation by 250 ms so activation propagates visually
+    # across the sphere sector by sector. LLMs run concurrently in the background.
+    tasks = []
+    for i, agent in enumerate(LAYER1_AGENTS):
+        tasks.append(asyncio.create_task(run_proposer(ws, agent, prompt)))
+        if i < len(LAYER1_AGENTS) - 1:
+            await asyncio.sleep(0.25)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     layer1_outputs = {}
     for agent, result in zip(LAYER1_AGENTS, results):

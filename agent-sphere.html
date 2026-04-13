@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.1.1</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.2.0</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -746,8 +746,9 @@ function connectWS() {
         break;
 
       case 'agent_start':
-        // Only light up nodes while this LLM call is running
         activateNodes(msg.node_ids, msg.agent);
+        if (msg.layer === 1)
+          showStatus(`layer ${msg.sub_layer} · ${msg.agent}`);
         break;
 
       case 'token':
@@ -760,7 +761,7 @@ function connectWS() {
         break;
 
       case 'layer_done':
-        if (msg.layer === 1) showStatus('layer 2 · aggregating…');
+        if (msg.layer === 1) showStatus('layer 8 · aggregator');
         break;
 
       case 'agent_done':
