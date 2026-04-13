@@ -183,17 +183,16 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 # ── Agent runners ─────────────────────────────────────────────────────────────
-async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
-    await emit(ws, "agent_start",
-               agent=agent["name"],
-               node_ids=agent["nodes"],
-               layer=1)
+# Fallback used when an agent's primary model fails all retries.
+FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
 
-    client = CLIENTS[agent["provider"]]
+async def _call_model(ws: WebSocket, agent: dict, prompt: str,
+                      provider: str, model: str) -> str:
+    """Single attempt: stream one model and return full text."""
+    client = CLIENTS[provider]
     full_text = []
-
     stream = await client.chat.completions.create(
-        model=agent["model"],
+        model=model,
         max_tokens=agent["max_tokens"],
         messages=[
             {"role": "system", "content": agent["system"]},
@@ -207,9 +206,39 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             full_text.append(text)
             await emit(ws, "token", text=text, agent=agent["name"], layer=1)
             await asyncio.sleep(0)
-
-    await emit(ws, "agent_complete", agent=agent["name"], layer=1)
     return "".join(full_text)
+
+
+async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
+    """Run a proposer with up to 3 attempts, then fall back to a reliable model.
+    Every agent always completes — no prompt ever skips a layer node."""
+    await emit(ws, "agent_start",
+               agent=agent["name"],
+               node_ids=agent["nodes"],
+               layer=1)
+
+    last_err = None
+    # Try primary model up to 3 times
+    for attempt in range(3):
+        try:
+            result = await _call_model(
+                ws, agent, prompt, agent["provider"], agent["model"])
+            await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+            return result
+        except Exception as e:
+            last_err = e
+            if attempt < 2:
+                await asyncio.sleep(1.5)
+
+    # Primary exhausted — switch to fallback model (always available on Groq)
+    try:
+        result = await _call_model(
+            ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"])
+        await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+        return result
+    except Exception as e:
+        await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+        raise Exception(f"{agent['name']} failed (primary + fallback): {e}") from e
 
 
 async def run_aggregator(ws: WebSocket, layer1_outputs: dict) -> str:
@@ -265,13 +294,11 @@ async def run_moa(ws: WebSocket, prompt: str):
     layer1_outputs = {}
     for agent, result in zip(LAYER1_AGENTS, results):
         if isinstance(result, Exception):
-            await emit(ws, "error", message=f"{agent['name']}: {result}")
+            # Should rarely happen — primary + fallback both failed
+            await emit(ws, "error", message=str(result))
+            layer1_outputs[agent["name"]] = "[unavailable]"
         else:
             layer1_outputs[agent["name"]] = result
-
-    if not layer1_outputs:
-        await emit(ws, "error", message="All proposers failed — check API keys and models.")
-        return
 
     await emit(ws, "layer_done", layer=1)
 
