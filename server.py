@@ -79,7 +79,7 @@ LAYER1_AGENTS = [
         "name":      "critic",
         "nodes":     list(range(40, 60)),
         "provider":  "groq",
-        "model":     "gemma2-9b-it",
+        "model":     "llama-3.1-70b-versatile",
         "max_tokens": 200,
         "system": (
             "You are a critical evaluation agent. Given a prompt, identify "
