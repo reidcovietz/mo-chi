@@ -27,6 +27,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from openai import AsyncOpenAI
+from duckduckgo_search import DDGS
 
 load_dotenv()
 
@@ -189,6 +190,45 @@ async def websocket_endpoint(ws: WebSocket):
             pass
 
 
+# ── Web research (Layer 0) ────────────────────────────────────────────────────
+async def web_research(query: str) -> tuple[str, list[dict]]:
+    """Search web + news in parallel, return (formatted_context, raw_results)."""
+    def _search():
+        results = []
+        with DDGS() as ddgs:
+            # General web results
+            try:
+                results += list(ddgs.text(query, max_results=8))
+            except Exception:
+                pass
+            # Current news
+            try:
+                for r in ddgs.news(query, max_results=8):
+                    results.append({
+                        "title": r.get("title", ""),
+                        "body":  r.get("body", r.get("excerpt", "")),
+                        "href":  r.get("url", r.get("href", "")),
+                        "source": r.get("source", "news"),
+                    })
+            except Exception:
+                pass
+        return results
+
+    raw = await asyncio.get_event_loop().run_in_executor(None, _search)
+
+    if not raw:
+        return "", []
+
+    lines = []
+    for i, r in enumerate(raw, 1):
+        title  = r.get("title", "")
+        body   = r.get("body", "")
+        source = r.get("href", r.get("source", ""))
+        lines.append(f"[{i}] {title}\n{body}\nSource: {source}")
+
+    return "\n\n".join(lines), raw
+
+
 # ── Agent runners ─────────────────────────────────────────────────────────────
 # Fallback used when an agent's primary model fails all retries.
 FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
@@ -291,6 +331,24 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict) -> str:
 async def run_moa(ws: WebSocket, prompt: str):
     await emit(ws, "prompt_received", text=prompt)
 
+    # ── Layer 0: web research ──────────────────────────────────────────────────
+    await emit(ws, "agent_start", agent="research",
+               node_ids=list(range(162)), layer=0, sub_layer=0)
+
+    context, raw_results = await web_research(prompt)
+
+    await emit(ws, "research_results",
+               results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
+                        for r in raw_results])
+    await emit(ws, "agent_complete", agent="research", layer=0)
+
+    # Enrich each agent's user prompt with live web context
+    enriched = (
+        f"[Live Web Research — {len(raw_results)} sources]\n{context}\n\n"
+        f"[Query]\n{prompt}"
+    ) if context else prompt
+
+    # ── Layer 1: proposers ────────────────────────────────────────────────────
     await emit(ws, "layer_start", layer=1,
                agents=[a["name"] for a in LAYER1_AGENTS])
 
@@ -298,7 +356,7 @@ async def run_moa(ws: WebSocket, prompt: str):
     # across the sphere sector by sector. LLMs run concurrently in the background.
     tasks = []
     for i, agent in enumerate(LAYER1_AGENTS):
-        tasks.append(asyncio.create_task(run_proposer(ws, agent, prompt)))
+        tasks.append(asyncio.create_task(run_proposer(ws, agent, enriched)))
         if i < len(LAYER1_AGENTS) - 1:
             await asyncio.sleep(0.25)
     results = await asyncio.gather(*tasks, return_exceptions=True)

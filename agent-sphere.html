@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.2.0</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.3.0</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -398,6 +398,7 @@ const AGENT_COLOR = {
   reasoning:   new THREE.Color(0.94, 0.78, 0.10),   // yellow — Gemma-3 27b
   pragmatist:  new THREE.Color(0.14, 0.86, 0.62),   // teal   — Mistral 7b
   aggregator:  new THREE.Color(0.28, 0.90, 0.55),   // green  — Groq llama (agg)
+  research:    new THREE.Color(0.88, 0.93, 1.00),   // silver-white — web research
 };
 
 // ── Neural Network ────────────────────────────────────────────────────────────
@@ -652,6 +653,7 @@ const resultSources = document.getElementById('result-sources');
 const resultNewBtn  = document.getElementById('result-new-btn');
 const uiBar         = document.getElementById('ui');
 let   promptStartTime = 0;
+let   searchSources   = [];
 
 function showResultPanel() {
   // Build source chips from proposer outputs
@@ -663,6 +665,20 @@ function showResultPanel() {
     pragmatist: 'rgba(40,220,160',
   };
   resultSources.innerHTML = '';
+
+  // Web search sources
+  searchSources.slice(0, 6).forEach(s => {
+    if (!s.title) return;
+    const chip = document.createElement('a');
+    chip.className = 'source-chip';
+    chip.textContent = s.title.length > 40 ? s.title.slice(0, 38) + '…' : s.title;
+    chip.style.borderColor = 'rgba(200,220,255,.35)';
+    chip.style.color       = 'rgba(200,220,255,.7)';
+    if (s.url) { chip.href = s.url; chip.target = '_blank'; chip.style.textDecoration = 'none'; }
+    resultSources.appendChild(chip);
+  });
+
+  // Agent chips
   agents.forEach(a => {
     const el = document.getElementById(`text-${a}`);
     if (!el || !el.textContent.trim()) return;
@@ -703,6 +719,7 @@ function clearPanels() {
     if (el) el.textContent = '';
   });
   document.getElementById('agg-text').textContent = '';
+  searchSources = [];
   hideResultPanel();
 }
 
@@ -747,8 +764,14 @@ function connectWS() {
 
       case 'agent_start':
         activateNodes(msg.node_ids, msg.agent);
-        if (msg.layer === 1)
+        if (msg.layer === 0)
+          showStatus('layer 0 · researching web…');
+        else if (msg.layer === 1)
           showStatus(`layer ${msg.sub_layer} · ${msg.agent}`);
+        break;
+
+      case 'research_results':
+        searchSources = msg.results || [];
         break;
 
       case 'token':
@@ -756,8 +779,8 @@ function connectWS() {
         break;
 
       case 'agent_complete':
-        // Layer 1 proposers fade when they finish; aggregator stays lit until agent_done
-        if (msg.layer === 1) fadeNodes(msg.agent);
+        if (msg.layer === 0) fadeNodes('research');
+        else if (msg.layer === 1) fadeNodes(msg.agent);
         break;
 
       case 'layer_done':
