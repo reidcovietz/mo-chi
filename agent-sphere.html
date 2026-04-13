@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.3</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v0.4.4</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -318,9 +318,9 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(innerWidth, innerHeight),
-  1.35,   // strength
-  0.55,   // radius
-  0.24    // threshold — dormant nodes stay below this
+  0.55,   // strength — kept low so glow is tight, not diffused
+  0.28,   // radius  — small halo, not a screen-wide blue wash
+  0.28    // threshold — dormant nodes stay completely unlit
 );
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -531,8 +531,19 @@ scene.add(promptMesh);
 const promptLight = new THREE.PointLight(0x44ff44, 0, 10);
 scene.add(promptLight);
 
-const PROMPT_START = new THREE.Vector3(-8.8, 0.5, -0.8);
-const PROMPT_END   = new THREE.Vector3(0, 0, 0);
+// Computed fresh each send — maps the input box's screen position into world space
+// so the orb appears to launch from the text field itself.
+function getPromptStart() {
+  const el   = document.getElementById('prompt-input');
+  const rect = el.getBoundingClientRect();
+  const nx   = ((rect.left + rect.width  / 2) / innerWidth)  *  2 - 1;
+  const ny   = -((rect.top  + rect.height / 2) / innerHeight) *  2 + 1;
+  const vec  = new THREE.Vector3(nx, ny, 0.5).unproject(camera);
+  vec.sub(camera.position).normalize().multiplyScalar(7.5);
+  return camera.position.clone().add(vec);
+}
+const PROMPT_END = new THREE.Vector3(0, 0, 0);
+let   PROMPT_START = getPromptStart();
 promptMesh.position.copy(PROMPT_START);
 
 // ── Animation state ───────────────────────────────────────────────────────────
@@ -577,6 +588,7 @@ function beginFly() {
   STATE = 'flying'; elapsed = 0;
   resetAll();
   startNN(lastPrompt);
+  PROMPT_START = getPromptStart();
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
   promptMat.emissiveIntensity = 2.2;
