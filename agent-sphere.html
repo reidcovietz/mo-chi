@@ -25,6 +25,53 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   border-radius:50%; background:#444; transition:background .4s; cursor:default;
 }
 
+/* ── Result panel (slides up after aggregator done) ── */
+#result-panel {
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:-100%; width:min(740px,88vw); max-height:58vh;
+  background:rgba(6,10,20,0.94); border:1px solid rgba(80,230,150,0.28);
+  border-radius:14px; padding:18px 22px;
+  display:flex; flex-direction:column; gap:10px;
+  backdrop-filter:blur(16px);
+  transition:bottom 0.55s cubic-bezier(0.16,1,0.3,1);
+  z-index:20;
+}
+#result-panel.visible { bottom:18px; }
+#result-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-bottom:8px; border-bottom:1px solid rgba(80,230,150,0.12);
+}
+#result-label {
+  font-size:9px; letter-spacing:3px; text-transform:uppercase;
+  color:rgba(80,230,150,0.65);
+}
+#result-meta {
+  font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.18);
+}
+#result-new-btn {
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(80,230,150,0.55); background:none; border:1px solid rgba(80,230,150,0.2);
+  border-radius:5px; padding:4px 10px; cursor:pointer;
+  font-family:'Courier New',monospace; transition:all .2s;
+}
+#result-new-btn:hover { background:rgba(80,230,150,0.08); color:rgba(80,230,150,0.9); }
+#result-text {
+  font-size:13.5px; line-height:1.8; overflow-y:auto; flex:1;
+  white-space:pre-wrap; word-break:break-word;
+  color:rgba(190,235,210,0.88);
+  scrollbar-width:thin; scrollbar-color:rgba(80,230,150,0.15) transparent;
+}
+#result-sources {
+  border-top:1px solid rgba(255,255,255,0.06);
+  padding-top:8px; display:none; gap:6px; flex-wrap:wrap;
+}
+#result-sources.visible { display:flex; }
+.source-chip {
+  font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase;
+  padding:3px 8px; border-radius:4px; border:1px solid transparent;
+  opacity:0.6;
+}
+
 /* ── Proposer cards (left) ── */
 #proposers {
   position:fixed; left:22px; top:58px; bottom:96px; width:210px;
@@ -115,7 +162,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 /* ── Input bar ── */
 #ui {
   position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
-  display:flex; gap:9px; z-index:10;
+  display:flex; gap:9px; z-index:10; transition:opacity .3s;
 }
 #prompt-input {
   width:360px; padding:11px 16px;
@@ -155,7 +202,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div class="prop-card prop-creative">
     <div class="prop-header">
       <span class="prop-indicator" id="ind-creative"></span>
-      <span class="prop-label">Creative · mixtral-8x7b</span>
+      <span class="prop-label">Creative · llama-3.1-8b</span>
     </div>
     <div class="prop-text" id="text-creative"></div>
   </div>
@@ -203,6 +250,17 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
     <span id="agg-label">Aggregator</span>
   </div>
   <div id="agg-text"></div>
+</div>
+
+<!-- Result panel -->
+<div id="result-panel">
+  <div id="result-header">
+    <span id="result-label">synthesis · aggregator</span>
+    <span id="result-meta"></span>
+    <button id="result-new-btn">new prompt</button>
+  </div>
+  <div id="result-text"></div>
+  <div id="result-sources"></div>
 </div>
 
 <div id="ui">
@@ -472,12 +530,66 @@ function setIndicator(agent, active) {
   else        el.classList.remove('active');
 }
 
+// ── Result panel ──────────────────────────────────────────────────────────────
+const resultPanel   = document.getElementById('result-panel');
+const resultText    = document.getElementById('result-text');
+const resultMeta    = document.getElementById('result-meta');
+const resultSources = document.getElementById('result-sources');
+const resultNewBtn  = document.getElementById('result-new-btn');
+const uiBar         = document.getElementById('ui');
+let   promptStartTime = 0;
+
+function showResultPanel() {
+  // Build source chips from proposer outputs
+  const agents = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
+  const CHIP_COLORS = {
+    analytical: 'rgba(80,140,255',  creative: 'rgba(200,80,255',
+    critic:     'rgba(255,140,50',  visionary:'rgba(30,210,240',
+    contrarian: 'rgba(255,55,85',   reasoning:'rgba(240,200,30',
+    pragmatist: 'rgba(40,220,160',
+  };
+  resultSources.innerHTML = '';
+  agents.forEach(a => {
+    const el = document.getElementById(`text-${a}`);
+    if (!el || !el.textContent.trim()) return;
+    const chip = document.createElement('span');
+    chip.className = 'source-chip';
+    chip.textContent = a;
+    const c = CHIP_COLORS[a];
+    chip.style.borderColor = `${c},.45)`;
+    chip.style.color       = `${c},.8)`;
+    resultSources.appendChild(chip);
+  });
+  resultSources.classList.toggle('visible', resultSources.children.length > 0);
+
+  // Copy aggregator text
+  resultText.textContent = document.getElementById('agg-text').textContent;
+
+  // Elapsed time
+  const secs = ((Date.now() - promptStartTime) / 1000).toFixed(1);
+  resultMeta.textContent = `${secs}s`;
+
+  resultPanel.classList.add('visible');
+  uiBar.style.opacity = '0';
+  uiBar.style.pointerEvents = 'none';
+}
+
+function hideResultPanel() {
+  resultPanel.classList.remove('visible');
+  uiBar.style.opacity = '1';
+  uiBar.style.pointerEvents = '';
+  document.getElementById('prompt-input').focus();
+}
+
+resultNewBtn.addEventListener('click', hideResultPanel);
+
 function clearPanels() {
   ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'].forEach(a => {
     const el = document.getElementById(`text-${a}`);
     if (el) el.textContent = '';
   });
   document.getElementById('agg-text').textContent = '';
+  hideResultPanel();
 }
 
 function appendToken(agent, text) {
@@ -511,6 +623,7 @@ function connectWS() {
     switch (msg.event) {
       case 'prompt_received':
         clearPanels();
+        promptStartTime = Date.now();
         beginFly();
         break;
 
@@ -538,6 +651,7 @@ function connectWS() {
 
       case 'agent_done':
         beginFade();
+        setTimeout(showResultPanel, 600);
         break;
 
       case 'error':
