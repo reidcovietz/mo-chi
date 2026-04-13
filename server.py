@@ -67,7 +67,7 @@ LAYER1_AGENTS = [
         "name":      "creative",
         "nodes":     list(range(20, 40)),
         "provider":  "groq",
-        "model":     "mixtral-8x7b-32768",
+        "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
         "system": (
             "You are a creative thinking agent. Given a prompt, offer an "
