@@ -186,7 +186,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <body>
 
 <div id="canvas-wrap"></div>
-<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.1.0</span></div>
+<div id="title">mo-chi · neural agent network <span style="letter-spacing:2px;opacity:0.45">v1.1.1</span></div>
 <div id="status"></div>
 <div id="ws-dot" title="connecting…"></div>
 
@@ -617,8 +617,8 @@ function beginFly() {
   PROMPT_START = getPromptStart();
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
-  promptMat.emissiveIntensity = 2.2;
-  promptLight.intensity = 5;
+  promptMat.emissiveIntensity = 0.5;
+  promptLight.intensity = 0.8;
   document.getElementById('send-btn').disabled = true;
   showStatus('transmitting…');
 }
@@ -846,8 +846,8 @@ function animate() {
   if (STATE === 'processing') {
     const pulse = 0.48 + 0.18 * Math.sin(elapsed * 5.2);
     promptMesh.scale.setScalar(pulse);
-    promptMat.emissiveIntensity = 1.6 + 0.55 * Math.sin(elapsed * 5.2);
-    promptLight.intensity = 2.2 + 0.8 * Math.sin(elapsed * 5.2);
+    promptMat.emissiveIntensity = 0.4 + 0.15 * Math.sin(elapsed * 5.2);
+    promptLight.intensity = 0.6 + 0.2 * Math.sin(elapsed * 5.2);
     promptLight.position.copy(PROMPT_END);
   }
 
@@ -855,8 +855,8 @@ function animate() {
   if (STATE === 'fading') {
     const f = Math.max(0, 1 - elapsed / FADE_DUR);
     promptMat.opacity           = f;
-    promptMat.emissiveIntensity = f * 1.8;
-    promptLight.intensity       = f * 2.2;
+    promptMat.emissiveIntensity = f * 0.5;
+    promptLight.intensity       = f * 0.8;
     if (elapsed >= FADE_DUR) {
       STATE = 'idle'; elapsed = 0;
       resetAll();
