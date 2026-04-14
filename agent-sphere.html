@@ -455,9 +455,17 @@ controls.dampingFactor   = 0.055;
 controls.autoRotate      = true;
 controls.autoRotateSpeed = 0.35;
 controls.enablePan       = false;
-controls.minDistance     = 5;
+controls.minDistance     = 2;
 controls.maxDistance     = 20;
-controls.addEventListener('start', () => { controls.autoRotate = false; });
+let autoRotateTimer = null;
+controls.addEventListener('start', () => {
+  controls.autoRotate = false;
+  if (autoRotateTimer) clearTimeout(autoRotateTimer);
+});
+controls.addEventListener('end', () => {
+  if (autoRotateTimer) clearTimeout(autoRotateTimer);
+  autoRotateTimer = setTimeout(() => { controls.autoRotate = true; }, 5000);
+});
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 0.12));
@@ -775,8 +783,8 @@ function beginFly() {
   PROMPT_START = getPromptStart();
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
-  promptMat.emissiveIntensity = 0.5;
-  promptLight.intensity = 0.8;
+  promptMat.emissiveIntensity = 0.35;
+  promptLight.intensity = 0.5;
   document.getElementById('send-btn').disabled = true;
   showStatus('transmitting…');
 }
@@ -1246,12 +1254,12 @@ function animate() {
     if (prog >= 1) { STATE = 'processing'; elapsed = 0; }
   }
 
-  // Processing: prompt sphere pulses at center
+  // Processing: prompt sphere sits quietly at center — models have it now
   if (STATE === 'processing') {
-    const pulse = 0.48 + 0.18 * Math.sin(elapsed * 5.2);
+    const pulse = 0.30 + 0.04 * Math.sin(elapsed * 2.8);  // gentle, slow
     promptMesh.scale.setScalar(pulse);
-    promptMat.emissiveIntensity = 0.4 + 0.15 * Math.sin(elapsed * 5.2);
-    promptLight.intensity = 0.6 + 0.2 * Math.sin(elapsed * 5.2);
+    promptMat.emissiveIntensity = 0.08 + 0.04 * Math.sin(elapsed * 2.8);
+    promptLight.intensity = 0.05 + 0.03 * Math.sin(elapsed * 2.8);
     promptLight.position.copy(PROMPT_END);
   }
 
