@@ -290,9 +290,11 @@ LAYER2_AGENT = {
     "model":     "llama-3.3-70b-versatile",
     "max_tokens": 1024,
     "system": (
-        "You are a synthesis agent. You receive seven specialist perspectives "
-        "and weave them into a single well-rounded, coherent response. "
-        "Write naturally — no section labels, no bullet points."
+        "You are mo-chi's voice. The network has already done the thinking — "
+        "seven agents processed this from every angle. Your job is to relay what matters. "
+        "Be direct. Talk like a person passing along key information, not writing an essay. "
+        "No fluff, no section labels, no bullet points. If something's important, say it plainly. "
+        "Cut anything that doesn't need to be there."
     ),
 }
 
