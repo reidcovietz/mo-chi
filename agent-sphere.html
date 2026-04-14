@@ -358,11 +358,16 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div id="result-header">
     <span id="result-label">synthesis · aggregator</span>
     <span id="result-meta"></span>
+    <button id="result-followup-btn">follow up</button>
     <button id="result-new-btn">new prompt</button>
     <button id="result-close-btn" title="close">&#x2715;</button>
   </div>
   <div id="result-text"></div>
   <div id="result-sources"></div>
+  <div id="result-followup-bar">
+    <input id="result-followup-input" type="text" placeholder="Ask a follow-up…" autocomplete="off"/>
+    <button id="result-followup-send">SEND</button>
+  </div>
 </div>
 
 <!-- Neural calculations panel -->
