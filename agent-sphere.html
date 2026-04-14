@@ -810,9 +810,7 @@ function clearPanels() {
     const el = document.getElementById(`text-${a}`);
     if (el) el.textContent = '';
   });
-  document.getElementById('agg-text').textContent = '';
-  searchSources = [];
-  hideResultPanel();
+  clearConvoPanel();
 }
 
 function appendToken(agent, text) {
