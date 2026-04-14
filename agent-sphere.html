@@ -1049,13 +1049,10 @@ function connectWS() {
 
       case 'agent_done':
         beginFade();
+        finalizeAssistantPill();
         computeNNReadout();
-        if (sessionActive) {
-          addChainExchange(lastPrompt, msg.full_text);
-          setTimeout(() => { document.getElementById('prompt-input').focus(); }, 600);
-        } else {
-          setTimeout(showResultPanel, 600);
-        }
+        addChainExchange(lastPrompt, msg.full_text);
+        setTimeout(() => { document.getElementById('prompt-input').focus(); }, 600);
         break;
 
       case 'error':
