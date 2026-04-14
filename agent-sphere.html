@@ -90,7 +90,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 8px currentColor;
 }
 
-/* ── Aggregator panel (right) ── */
+/* ── Aggregator / Conversation history panel (right) ── */
 #agg-panel {
   position:fixed; right:22px; top:58px; bottom:96px; width:230px;
   border-radius:9px; padding:9px 13px;
@@ -107,22 +107,58 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 8px #50e696;
 }
 #agg-label { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; color:rgba(80,230,150,.7); }
-#agg-text  {
-  font-size:11px; line-height:1.7; overflow-y:auto; flex:1;
-  white-space:pre-wrap; word-break:break-word; scrollbar-width:none;
-  color:rgba(150,230,190,.65);
+#convo-history {
+  flex:1; overflow-y:auto; display:flex; flex-direction:column;
+  gap:6px; padding-top:4px;
+  scrollbar-width:thin; scrollbar-color:rgba(80,230,150,0.1) transparent;
+}
+.convo-msg {
+  max-width:92%; border-radius:10px; padding:6px 10px;
+  font-size:10.5px; line-height:1.55; word-break:break-word;
+  animation:pill-in 0.25s ease;
+}
+@keyframes pill-in {
+  from { opacity:0; transform:translateY(3px); }
+  to   { opacity:1; transform:none; }
+}
+.convo-msg.user {
+  align-self:flex-end;
+  background:rgba(55,190,75,.18);
+  border:1px solid rgba(55,190,75,.3);
+  color:rgba(160,240,160,.9);
+}
+.convo-msg.assistant {
+  align-self:flex-start;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  color:rgba(190,200,210,.7);
+}
+.convo-cursor::after {
+  content:''; display:inline-block;
+  width:0.45em; height:0.75em;
+  background:rgba(80,230,150,.6);
+  margin-left:2px; vertical-align:middle;
+  animation:cursor-blink .65s step-end infinite;
+}
+@keyframes cursor-blink {
+  0%,100%{ opacity:1; } 50%{ opacity:0; }
 }
 
-/* ── Neural regression readout ── */
-#nn-readout {
-  flex-shrink:0;
-  border-top:1px solid rgba(80,230,150,.1);
-  padding-top:7px;
-  display:none;
-  flex-direction:column;
-  gap:3px;
+/* ── Neural calculations panel (dedicated) ── */
+#nn-panel {
+  position:fixed; right:22px; bottom:-140px; width:230px;
+  background:rgba(6,10,20,0.92); border:1px solid rgba(80,230,150,0.14);
+  border-radius:9px; padding:10px 13px;
+  display:flex; flex-direction:column; gap:3px;
+  backdrop-filter:blur(12px);
+  transition:bottom 0.45s cubic-bezier(0.16,1,0.3,1);
+  z-index:15;
 }
-#nn-readout.visible { display:flex; }
+#nn-panel.visible { bottom:96px; }
+#nn-panel-header {
+  font-size:7.5px; letter-spacing:3px; text-transform:uppercase;
+  color:rgba(80,230,150,.4); margin-bottom:2px;
+}
 .nn-row {
   display:flex; align-items:center; gap:5px;
 }
