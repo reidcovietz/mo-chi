@@ -933,6 +933,7 @@ function addChainExchange(promptText, responseText) {
   const rMesh = new THREE.Mesh(chainResponseGeo, rMat);
   rMesh.position.set(x + 0.38, CHAIN_Y, 0);
   chainGroup.add(rMesh);
+  chainResponseMeshes.push({ mesh: rMesh, fullText: responseText });
 
   // Inner dash (prompt → response within exchange)
   const innerGeo = new THREE.BufferGeometry().setFromPoints([
