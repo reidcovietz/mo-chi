@@ -929,80 +929,123 @@ function clearNNReadout() {
   resetTokenCounts();
 }
 
-// ── Session chain (above sphere, always active) ───────────────────────────
-const chainGroup = new THREE.Group();
-chainGroup.visible = true;
-scene.add(chainGroup);
-
-const chainResponseMeshes = []; // { mesh, fullText }
+// ── Session chain (multi-session, branches from sphere) ──────────────────────
+const allResponseMeshes = [];  // all clickable response meshes, all sessions
 const raycaster = new THREE.Raycaster();
 const mouse2d   = new THREE.Vector2();
+const archivedSessions = [];   // sessions kept after "new prompt"
 
-let sessionExchanges = [];
-const CHAIN_Y        =  4.1;   // above the sphere
-const CHAIN_START_X  = -2.8;
-const CHAIN_STEP_X   =  1.05;  // horizontal spacing between exchanges
+// Per-session state
+let curSession = null; // { group, connLine, lastRMesh, lastRRadius, exchanges }
 
-const chainPromptGeo   = new THREE.SphereGeometry(0.065, 8, 8);
-const chainResponseGeo = new THREE.SphereGeometry(0.095, 8, 8);
+const CHAIN_STEP_BASE = 1.05;
+
+function _sessionLayout(archiveIdx) {
+  // Each archived session fans upward-right from sphere, creating a branching tree
+  return {
+    baseY:  4.1 + archiveIdx * 0.60,
+    startX: -2.8 + archiveIdx * 0.52,
+  };
+}
+
+function _ensureSession() {
+  if (curSession) return;
+  curSession = {
+    group:       new THREE.Group(),
+    connLine:    null,
+    lastRMesh:   null,
+    lastRRadius: 0,
+    exchanges:   [],
+  };
+  scene.add(curSession.group);
+}
 
 function addChainExchange(promptText, responseText) {
-  const idx = sessionExchanges.length;
-  sessionExchanges.push({ prompt: promptText, response: responseText });
+  _ensureSession();
+  const idx = curSession.exchanges.length;
+  curSession.exchanges.push({ prompt: promptText, response: responseText });
 
-  const x = CHAIN_START_X + idx * CHAIN_STEP_X;
+  const { baseY, startX } = _sessionLayout(archivedSessions.length);
 
-  // Prompt node — soft blue-white
+  // Organic variation per node
+  const pRadius  = 0.048 + Math.random() * 0.042;           // 0.048–0.090
+  const rRadius  = 0.075 + Math.random() * 0.052;           // 0.075–0.127
+  const pJitY    = (Math.random() - 0.5) * 0.20;
+  const rJitY    = (Math.random() - 0.5) * 0.18;
+  const pJitZ    = (Math.random() - 0.5) * 0.30;
+  const rJitZ    = (Math.random() - 0.5) * 0.26;
+  const stepVar  = CHAIN_STEP_BASE + (Math.random() - 0.5) * 0.22;
+  const pSegs    = 7 + Math.floor(Math.random() * 5);
+  const rSegs    = 8 + Math.floor(Math.random() * 5);
+
+  const x = startX + idx * stepVar;
+
+  // Prompt node — blue-white, organic size & intensity
+  const pGeo = new THREE.SphereGeometry(pRadius, pSegs, pSegs);
   const pMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.10, 0.16, 0.35),
-    emissive: new THREE.Color(0.45, 0.62, 1.0),
-    emissiveIntensity: 0.55,
-    roughness: 0.3, metalness: 0.65,
+    color: new THREE.Color(0.08, 0.14, 0.32),
+    emissive: new THREE.Color(0.38 + Math.random() * 0.18, 0.52 + Math.random() * 0.16, 1.0),
+    emissiveIntensity: 0.42 + Math.random() * 0.38,
+    roughness: 0.22 + Math.random() * 0.22, metalness: 0.52 + Math.random() * 0.22,
     transparent: true, opacity: 0,
   });
-  const pMesh = new THREE.Mesh(chainPromptGeo, pMat);
-  pMesh.position.set(x, CHAIN_Y, 0);
-  chainGroup.add(pMesh);
+  const pMesh = new THREE.Mesh(pGeo, pMat);
+  pMesh.position.set(x, baseY + pJitY, pJitZ);
+  curSession.group.add(pMesh);
 
-  // Response node — aggregator green
+  // Response node — green, organic
+  const rGeo = new THREE.SphereGeometry(rRadius, rSegs, rSegs);
   const rMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.05, 0.25, 0.14),
+    color: new THREE.Color(0.04, 0.20, 0.11),
     emissive: AGENT_COLOR.aggregator.clone(),
-    emissiveIntensity: 0.75,
-    roughness: 0.3, metalness: 0.65,
+    emissiveIntensity: 0.58 + Math.random() * 0.42,
+    roughness: 0.18 + Math.random() * 0.22, metalness: 0.58 + Math.random() * 0.22,
     transparent: true, opacity: 0,
   });
-  const rMesh = new THREE.Mesh(chainResponseGeo, rMat);
-  rMesh.position.set(x + 0.38, CHAIN_Y, 0);
-  chainGroup.add(rMesh);
-  chainResponseMeshes.push({ mesh: rMesh, fullText: responseText });
+  const rMesh = new THREE.Mesh(rGeo, rMat);
+  rMesh.position.set(x + 0.32 + Math.random() * 0.14, baseY + rJitY, rJitZ);
+  curSession.group.add(rMesh);
+  allResponseMeshes.push({ mesh: rMesh, fullText: responseText });
 
-  // Inner dash (prompt → response within exchange)
+  // Inner connector (prompt → response)
   const innerGeo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(x + 0.065, CHAIN_Y, 0),
-    new THREE.Vector3(x + 0.28,  CHAIN_Y, 0),
+    pMesh.position.clone(),
+    rMesh.position.clone(),
   ]);
   const innerLine = new THREE.Line(innerGeo,
-    new THREE.LineBasicMaterial({ color: 0x3366aa, transparent: true, opacity: 0 }));
-  chainGroup.add(innerLine);
+    new THREE.LineBasicMaterial({ color: 0x2a4880, transparent: true, opacity: 0 }));
+  curSession.group.add(innerLine);
 
-  // Connector dash (previous response → this prompt)
-  if (idx > 0) {
-    const prevX = CHAIN_START_X + (idx - 1) * CHAIN_STEP_X;
+  // Chain connector (previous response → this prompt)
+  if (curSession.lastRMesh) {
     const connGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(prevX + 0.38 + 0.095, CHAIN_Y, 0),
-      new THREE.Vector3(x - 0.065,            CHAIN_Y, 0),
+      curSession.lastRMesh.position.clone(),
+      pMesh.position.clone(),
     ]);
     const connLine = new THREE.Line(connGeo,
-      new THREE.LineBasicMaterial({ color: 0x1a2840, transparent: true, opacity: 0 }));
-    chainGroup.add(connLine);
-    _fadeIn(connLine.material, 0.35, 900);
+      new THREE.LineBasicMaterial({ color: 0x152030, transparent: true, opacity: 0 }));
+    curSession.group.add(connLine);
+    _fadeIn(connLine.material, 0.30, 950);
   }
+
+  // Sphere → first node connector (drawn once per session)
+  if (idx === 0) {
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 3.2, 0),
+      pMesh.position.clone(),
+    ]);
+    curSession.connLine = new THREE.Line(geo,
+      new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0 }));
+    scene.add(curSession.connLine);
+    _fadeIn(curSession.connLine.material, 0.38, 1100);
+  }
+
+  curSession.lastRMesh   = rMesh;
+  curSession.lastRRadius = rRadius;
 
   _fadeIn(pMat,              1.0, 700);
   _fadeIn(rMat,              1.0, 700);
-  _fadeIn(innerLine.material, 0.6, 700);
-  drawSphereChainConnector();
+  _fadeIn(innerLine.material, 0.55, 750);
 }
 
 function _fadeIn(mat, targetOpacity, durationMs) {
@@ -1016,32 +1059,29 @@ function _fadeIn(mat, targetOpacity, durationMs) {
   tick();
 }
 
-function clearChain() {
-  while (chainGroup.children.length > 0) {
-    const obj = chainGroup.children[0];
-    if (obj.geometry) obj.geometry.dispose();
-    if (obj.material)  obj.material.dispose();
-    chainGroup.remove(obj);
+function archiveSession() {
+  // Keep current session visible, reset for next session
+  if (curSession && curSession.exchanges.length > 0) {
+    archivedSessions.push(curSession);
   }
-  sessionExchanges = [];
-  chainResponseMeshes.length = 0;
-  if (sphereChainLine) { scene.remove(sphereChainLine); sphereChainLine = null; }
+  curSession = null;
 }
 
-let sphereChainLine = null;
-
-function drawSphereChainConnector() {
-  // Remove old connector if exists
-  if (sphereChainLine) { scene.remove(sphereChainLine); sphereChainLine = null; }
-  if (sessionExchanges.length === 0) return;
-  // Line from sphere top (0, 3.2, 0) to first chain prompt node
-  const geo = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0, 3.2, 0),
-    new THREE.Vector3(CHAIN_START_X, CHAIN_Y, 0),
-  ]);
-  sphereChainLine = new THREE.Line(geo,
-    new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0.4 }));
-  scene.add(sphereChainLine);
+function clearChain() {
+  // Remove all sessions (archived + current)
+  [...archivedSessions, curSession].filter(Boolean).forEach(s => {
+    while (s.group.children.length > 0) {
+      const obj = s.group.children[0];
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material)  obj.material.dispose();
+      s.group.remove(obj);
+    }
+    scene.remove(s.group);
+    if (s.connLine) scene.remove(s.connLine);
+  });
+  archivedSessions.length = 0;
+  curSession = null;
+  allResponseMeshes.length = 0;
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
