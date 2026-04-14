@@ -701,12 +701,11 @@ function showStatus(msg) { statusEl.textContent = msg; statusEl.style.opacity = 
 function hideStatus()    { statusEl.style.opacity = '0'; }
 
 function setIndicator(agent, active) {
-  const el = agent === 'aggregator'
-    ? document.getElementById('agg-indicator')
-    : document.getElementById(`ind-${agent}`);
-  if (el) {
-    if (active) el.classList.add('active');
-    else        el.classList.remove('active');
+  // Orb glow
+  const orb = document.getElementById(`orb-${agent}`);
+  if (orb) {
+    if (active) orb.classList.add('active');
+    else        orb.classList.remove('active');
   }
   const mob = document.getElementById(`mob-${agent}`);
   if (mob) {
