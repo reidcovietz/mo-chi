@@ -612,6 +612,9 @@ function learnStep(lr = 0.018) {
 // This is the ONLY signal driving glow intensity — no simulation, no fake math.
 const agentTokenPulse = {};
 
+// Tracks which layer-1 agents are currently running — drives status line honestly
+const activeAgents = new Set();
+
 let nnActive = false, nnTimer = 0, nnInp = new Float32Array(verts.length);
 const NN_DT  = 0.07;
 
@@ -1095,31 +1098,34 @@ function connectWS() {
       case 'prompt_received':
         clearPanels();
         clearNNReadout();
+        activeAgents.clear();
         promptStartTime = Date.now();
         beginFly();
         break;
 
       case 'layer_start':
-        if (msg.layer === 1)
-          showStatus('calculating · ' + (msg.agents || []).join(' · '));
-        else if (msg.layer === 2)
-          showStatus('calculating · aggregator');
+        // Don't show anything — wait for actual agent_start events
         break;
 
-      case 'agent_start':
+      case 'agent_start': {
         activateNodes(msg.node_ids, msg.agent);
-        if (msg.layer === 0)
+        if (msg.layer === 0) {
           showStatus('searching web…');
+        } else if (msg.layer === 1) {
+          activeAgents.add(msg.agent);
+          showStatus('calculating · ' + [...activeAgents].join(' · '));
+        } else if (msg.layer === 2) {
+          showStatus('calculating · aggregator');
+        }
         break;
+      }
 
       case 'research_results':
         searchSources = msg.results || [];
         break;
 
       case 'intent':
-        if (msg.intent === 'casual') showStatus('mo-chi · responding…');
-        if (msg.intent === 'direct') showStatus('mo-chi · thinking…');
-        if (msg.intent === 'search') showStatus('mo-chi · searching web…');
+        // Don't show anything yet — wait for real events
         break;
 
       case 'memory_loaded':
@@ -1133,12 +1139,19 @@ function connectWS() {
         break;
 
       case 'agent_complete':
-        if (msg.layer === 0) fadeNodes('research');
-        else if (msg.layer === 1) fadeNodes(msg.agent);
+        if (msg.layer === 0) {
+          fadeNodes('research');
+        } else if (msg.layer === 1) {
+          fadeNodes(msg.agent);
+          activeAgents.delete(msg.agent);
+          if (activeAgents.size > 0)
+            showStatus('calculating · ' + [...activeAgents].join(' · '));
+          // When all done, aggregator agent_start will update the status
+        }
         break;
 
       case 'layer_done':
-        if (msg.layer === 1) showStatus('calculating · aggregator');
+        // Status handled by agent_start/agent_complete — no action needed
         break;
 
       case 'agent_done':
