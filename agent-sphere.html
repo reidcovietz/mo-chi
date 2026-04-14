@@ -138,6 +138,56 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 #send-btn:hover    { background:rgba(55,190,75,.2); }
 #send-btn:disabled { opacity:.3; cursor:default; }
 
+/* ── Result panel (slides up after aggregator done) ── */
+#result-panel {
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:-100%; width:min(740px,88vw); max-height:58vh;
+  background:rgba(6,10,20,0.94); border:1px solid rgba(80,230,150,0.28);
+  border-radius:14px; padding:18px 22px;
+  display:flex; flex-direction:column; gap:10px;
+  backdrop-filter:blur(16px);
+  transition:bottom 0.55s cubic-bezier(0.16,1,0.3,1);
+  z-index:20;
+}
+#result-panel.visible { bottom:18px; }
+#result-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding-bottom:8px; border-bottom:1px solid rgba(80,230,150,0.12);
+}
+#result-label {
+  font-size:9px; letter-spacing:3px; text-transform:uppercase;
+  color:rgba(80,230,150,0.65);
+}
+#result-meta { font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.18); }
+#result-new-btn {
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(80,230,150,0.55); background:none; border:1px solid rgba(80,230,150,0.2);
+  border-radius:5px; padding:4px 10px; cursor:pointer;
+  font-family:'Courier New',monospace; transition:all .2s;
+}
+#result-new-btn:hover { background:rgba(80,230,150,0.08); color:rgba(80,230,150,0.9); }
+#result-close-btn {
+  font-size:11px; color:rgba(255,255,255,0.25); background:none; border:none;
+  cursor:pointer; padding:4px 6px; line-height:1; transition:color .2s;
+  font-family:'Courier New',monospace;
+}
+#result-close-btn:hover { color:rgba(255,255,255,0.6); }
+#result-text {
+  font-size:13.5px; line-height:1.8; overflow-y:auto; flex:1;
+  white-space:pre-wrap; word-break:break-word;
+  color:rgba(190,235,210,0.88);
+  scrollbar-width:thin; scrollbar-color:rgba(80,230,150,0.15) transparent;
+}
+#result-sources {
+  border-top:1px solid rgba(255,255,255,0.06);
+  padding-top:8px; display:none; gap:6px; flex-wrap:wrap;
+}
+#result-sources.visible { display:flex; }
+.source-chip {
+  font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase;
+  padding:3px 8px; border-radius:4px; border:1px solid transparent; opacity:0.6;
+}
+
 /* ── Mobile agent strip (replaces side panels on small screens) ── */
 #mobile-agents { display:none; }
 
