@@ -232,8 +232,8 @@ LAYER1_AGENTS = [
         "name":      "visionary",
         "sub_layer": 4,
         "nodes":     list(range(70, 79)),
-        "provider":  "gemini",
-        "model":     "gemini-2.0-flash",
+        "provider":  "groq",
+        "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
         "system": (
             "You are a visionary agent. Given a prompt, describe a bold "
