@@ -207,7 +207,7 @@ LAYER1_AGENTS = [
         "sub_layer": 2,
         "nodes":     list(range(33, 37)),
         "provider":  "groq",
-        "model":     "mixtral-8x7b-32768",
+        "model":     "gemma2-9b-it",
         "max_tokens": 200,
         "system": (
             "You are a creative thinking agent. Given a prompt, offer an "
@@ -286,7 +286,7 @@ LAYER2_AGENT = {
     "name":      "aggregator",
     "nodes":     list(range(128, 162)),
     "provider":  "groq",
-    "model":     "mixtral-8x7b-32768",
+    "model":     "llama-3.3-70b-versatile",
     "max_tokens": 1024,
     "system": (
         "You are a synthesis agent. You receive seven specialist perspectives "
