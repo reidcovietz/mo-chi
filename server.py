@@ -517,14 +517,28 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
         raise Exception(f"{agent['name']} failed (primary + fallback): {e}") from e
 
 
-async def run_aggregator(ws: WebSocket, layer1_outputs: dict) -> str:
+async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
+                         prompt: str, history: list[dict]) -> str:
     combined = "\n\n".join(
         f"[{name}]: {text}" for name, text in layer1_outputs.items()
     )
+
+    # Build history block so the aggregator can give context-aware follow-ups
+    history_lines = []
+    for msg in history:
+        role = "User" if msg["role"] == "user" else "Mo-chi"
+        history_lines.append(f"{role}: {msg['content']}")
+    history_block = (
+        "CONVERSATION SO FAR:\n" + "\n\n".join(history_lines) + "\n\n---\n"
+    ) if history_lines else ""
+
     agg_prompt = (
-        f"Here are seven specialist perspectives on the same prompt:\n\n"
+        f"{history_block}"
+        f"Current question: {prompt}\n\n"
+        f"Seven specialist perspectives on this:\n\n"
         f"{combined}\n\n"
-        f"Synthesize these into a single clear, complete response."
+        f"Relay what matters. Be direct, like a person passing along key information — "
+        f"not an essay. If this is a follow-up, acknowledge the thread naturally."
     )
 
     await emit(ws, "agent_start",
