@@ -1078,11 +1078,11 @@ function connectWS() {
         break;
 
       case 'agent_done':
+        lastFullResponse = msg.full_text;
         beginFade();
-        finalizeAssistantPill();
         computeNNReadout();
         addChainExchange(lastPrompt, msg.full_text);
-        setTimeout(() => { document.getElementById('prompt-input').focus(); }, 600);
+        setTimeout(() => showResultPanel(msg.full_text), 600);
         break;
 
       case 'error':
