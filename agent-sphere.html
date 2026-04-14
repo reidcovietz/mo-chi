@@ -982,6 +982,24 @@ function clearChain() {
     chainGroup.remove(obj);
   }
   sessionExchanges = [];
+  chainResponseMeshes.length = 0;
+  if (sphereChainLine) { scene.remove(sphereChainLine); sphereChainLine = null; }
+}
+
+let sphereChainLine = null;
+
+function drawSphereChainConnector() {
+  // Remove old connector if exists
+  if (sphereChainLine) { scene.remove(sphereChainLine); sphereChainLine = null; }
+  if (sessionExchanges.length === 0) return;
+  // Line from sphere top (0, 3.2, 0) to first chain prompt node
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 3.2, 0),
+    new THREE.Vector3(CHAIN_START_X, CHAIN_Y, 0),
+  ]);
+  sphereChainLine = new THREE.Line(geo,
+    new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0.4 }));
+  scene.add(sphereChainLine);
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
