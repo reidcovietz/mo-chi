@@ -245,21 +245,21 @@ LAYER1_AGENTS = [
         "name":      "contrarian",
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
-        "provider":  "openrouter",
-        "model":     "deepseek/deepseek-r1-distill-llama-70b:free",
+        "provider":  "groq",
+        "model":     "gemma2-9b-it",
         "max_tokens": 200,
         "system": (
             "You are a contrarian agent. Given a prompt, argue the opposite "
             "of the obvious conclusion. Challenge assumptions directly. "
-            "Be concise — 2 to 3 sentences. Do not include reasoning tags."
+            "Be concise — 2 to 3 sentences."
         ),
     },
     {
         "name":      "reasoning",
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
-        "provider":  "openrouter",
-        "model":     "google/gemma-3-27b-it:free",
+        "provider":  "gemini",
+        "model":     "gemini-2.0-flash",
         "max_tokens": 200,
         "system": (
             "You are a structured reasoning agent. Given a prompt, break it "
@@ -271,8 +271,8 @@ LAYER1_AGENTS = [
         "name":      "pragmatist",
         "sub_layer": 7,
         "nodes":     list(range(125, 128)),
-        "provider":  "openrouter",
-        "model":     "mistralai/mistral-7b-instruct:free",
+        "provider":  "groq",
+        "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
         "system": (
             "You are a pragmatist agent. Given a prompt, focus on what is "
@@ -471,6 +471,8 @@ async def _call_model(ws: WebSocket, agent: dict, prompt: str,
     return "".join(full_text)
 
 
+AGENT_TIMEOUT = 20  # seconds before an agent is abandoned and fallback kicks in
+
 async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
     await emit(ws, "agent_start",
                agent=agent["name"],
@@ -480,17 +482,22 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
 
     for attempt in range(3):
         try:
-            result = await _call_model(
-                ws, agent, prompt, agent["provider"], agent["model"])
+            result = await asyncio.wait_for(
+                _call_model(ws, agent, prompt, agent["provider"], agent["model"]),
+                timeout=AGENT_TIMEOUT,
+            )
             await emit(ws, "agent_complete", agent=agent["name"], layer=1)
             return result
-        except Exception as e:
+        except (asyncio.TimeoutError, Exception):
             if attempt < 2:
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1.0)
 
+    # Primary exhausted — fallback to fast reliable Groq model
     try:
-        result = await _call_model(
-            ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"])
+        result = await asyncio.wait_for(
+            _call_model(ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"]),
+            timeout=AGENT_TIMEOUT,
+        )
         await emit(ws, "agent_complete", agent=agent["name"], layer=1)
         return result
     except Exception as e:
