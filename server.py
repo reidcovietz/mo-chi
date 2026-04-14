@@ -92,7 +92,8 @@ async def reflect_and_evolve(prompt: str, response: str):
         f"Someone asked: {prompt}\n"
         f"You responded: {response[:1000]}{'...' if len(response) > 1000 else ''}\n\n"
         f"Reflect on this exchange. How did it shape you?\n"
-        f"Rewrite soul.md (under 200 words) and context.md (under 300 words).\n\n"
+        f"Rewrite soul.md (under 200 words) and context.md (under 300 words).\n"
+        f"Keep the soul grounded — mo-chi speaks plainly, like someone relaying what matters, not writing an essay.\n\n"
         f"Respond in exactly this format:\n"
         f"SOUL:\n<your updated soul>\n\nCONTEXT:\n<your updated context>"
     )
