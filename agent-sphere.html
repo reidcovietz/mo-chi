@@ -608,8 +608,12 @@ function learnStep(lr = 0.018) {
   });
 }
 
+// Real token pulse — spikes to 1.0 on each token received, decays naturally.
+// This is the ONLY signal driving glow intensity — no simulation, no fake math.
+const agentTokenPulse = {};
+
 let nnActive = false, nnTimer = 0, nnInp = new Float32Array(verts.length);
-const NN_DT  = 0.07;  // run one forward pass every 70 ms during processing
+const NN_DT  = 0.07;
 
 function startNN(text) {
   nnInp = encodePrompt(text);
@@ -764,7 +768,7 @@ function beginFly() {
   if (STATE !== 'idle') return;
   STATE = 'flying'; elapsed = 0;
   resetAll();
-  startNN(lastPrompt);
+  Object.keys(agentTokenPulse).forEach(k => delete agentTokenPulse[k]);
   PROMPT_START = getPromptStart();
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
@@ -1125,6 +1129,7 @@ function connectWS() {
       case 'token':
         appendToken(msg.agent, msg.text);
         if (msg.layer === 1) trackToken(msg.agent);
+        agentTokenPulse[msg.agent] = 1.0;  // real token — spike glow
         break;
 
       case 'agent_complete':
@@ -1207,7 +1212,12 @@ function animate() {
 
   if (STATE !== 'idle') elapsed += dt;
 
-  // Tick neural network forward pass (runs continuously while processing)
+  // Decay real token pulses — each spike lasts ~0.3s then fades
+  Object.keys(agentTokenPulse).forEach(a => {
+    agentTokenPulse[a] = Math.max(0, agentTokenPulse[a] - dt * 3.5);
+  });
+
+  // Hebbian weight updates still run (drives edge brightness via edgeW)
   if (nnActive) {
     nnTimer += dt;
     if (nnTimer >= NN_DT) { forwardPass(nnInp); nnTimer = 0; }
@@ -1275,10 +1285,11 @@ function animate() {
 
     const progress  = Math.min(ns.glowT / 0.55, 1);
     const pulse     = 0.72 + 0.32 * Math.sin(ns.glowT * 3.8 + ns.phaseOff);
-    // a = σ(Σ wᵢxᵢ + b): activation modulates intensity above the dim baseline.
-    const neuronAct = 0.20 + 0.80 * Math.abs(act[ni]);
+    // Intensity driven purely by real token throughput — 0 when LLM is silent
+    const tokenPulse = agentTokenPulse[ns.agent] || 0;
+    const neuronAct  = 0.20 + 0.80 * tokenPulse;
     ns.mat.emissiveIntensity = DIM_GLOW + progress * pulse * neuronAct * fadeScale;
-    ns.mesh.scale.setScalar(1 + progress * neuronAct * 0.28);
+    ns.mesh.scale.setScalar(1 + progress * tokenPulse * 0.28);
   });
 
   updateEdges();
