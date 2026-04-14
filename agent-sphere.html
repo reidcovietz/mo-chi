@@ -828,7 +828,7 @@ function hideResultPanel() {
   document.getElementById('prompt-input').focus();
 }
 
-resultNewBtn.addEventListener('click', () => { hideResultPanel(); clearChain(); });
+resultNewBtn.addEventListener('click', () => { hideResultPanel(); archiveSession(); });
 document.getElementById('result-close-btn').addEventListener('click', hideResultPanel);
 
 // ── Follow-up input in result panel ───────────────────────────────────────────
