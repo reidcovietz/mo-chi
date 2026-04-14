@@ -1,7 +1,7 @@
 """
 mo-chi · FastAPI WebSocket backend — 100% free LLMs
 Multi-agent MoA architecture:
-  Layer 1 — 7 parallel proposers across Groq + Gemini + OpenRouter
+  Layer 1 — 7 parallel proposers across Groq + OpenRouter (4 model families)
   Layer 2 — 1 aggregator (Groq llama-3.3-70b)
 
 Free API keys:
@@ -207,7 +207,7 @@ LAYER1_AGENTS = [
         "sub_layer": 2,
         "nodes":     list(range(33, 37)),
         "provider":  "groq",
-        "model":     "llama-3.1-8b-instant",
+        "model":     "mixtral-8x7b-32768",
         "max_tokens": 200,
         "system": (
             "You are a creative thinking agent. Given a prompt, offer an "
@@ -220,7 +220,7 @@ LAYER1_AGENTS = [
         "sub_layer": 3,
         "nodes":     list(range(37, 70)),
         "provider":  "groq",
-        "model":     "llama-3.3-70b-versatile",
+        "model":     "gemma2-9b-it",
         "max_tokens": 200,
         "system": (
             "You are a critical evaluation agent. Given a prompt, identify "
@@ -232,8 +232,8 @@ LAYER1_AGENTS = [
         "name":      "visionary",
         "sub_layer": 4,
         "nodes":     list(range(70, 79)),
-        "provider":  "groq",
-        "model":     "llama-3.3-70b-versatile",
+        "provider":  "openrouter",
+        "model":     "mistralai/mistral-7b-instruct:free",
         "max_tokens": 200,
         "system": (
             "You are a visionary agent. Given a prompt, describe a bold "
@@ -246,7 +246,7 @@ LAYER1_AGENTS = [
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
         "provider":  "groq",
-        "model":     "gemma2-9b-it",
+        "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
         "system": (
             "You are a contrarian agent. Given a prompt, argue the opposite "
@@ -259,7 +259,7 @@ LAYER1_AGENTS = [
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
         "provider":  "groq",
-        "model":     "llama-3.3-70b-versatile",
+        "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
         "system": (
             "You are a structured reasoning agent. Given a prompt, break it "
@@ -272,7 +272,7 @@ LAYER1_AGENTS = [
         "sub_layer": 7,
         "nodes":     list(range(125, 128)),
         "provider":  "groq",
-        "model":     "llama-3.1-8b-instant",
+        "model":     "gemma2-9b-it",
         "max_tokens": 200,
         "system": (
             "You are a pragmatist agent. Given a prompt, focus on what is "
