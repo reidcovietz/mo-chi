@@ -992,15 +992,16 @@ function connectWS() {
         break;
 
       case 'layer_start':
-        showStatus(`layer ${msg.layer} · ${(msg.agents || []).join(' · ')}`);
+        if (msg.layer === 1)
+          showStatus('calculating · ' + (msg.agents || []).join(' · '));
+        else if (msg.layer === 2)
+          showStatus('calculating · aggregator');
         break;
 
       case 'agent_start':
         activateNodes(msg.node_ids, msg.agent);
         if (msg.layer === 0)
-          showStatus('layer 0 · researching web…');
-        else if (msg.layer === 1)
-          showStatus(`layer ${msg.sub_layer} · ${msg.agent}`);
+          showStatus('searching web…');
         break;
 
       case 'research_results':
@@ -1008,9 +1009,7 @@ function connectWS() {
         break;
 
       case 'intent':
-        if (msg.intent === 'casual')  showStatus('mo-chi · casual');
-        if (msg.intent === 'search')  showStatus('mo-chi · searching web…');
-        if (msg.intent === 'think')   showStatus('mo-chi · thinking…');
+        if (msg.intent === 'casual') showStatus('mo-chi · responding…');
         break;
 
       case 'memory_loaded':
@@ -1027,7 +1026,7 @@ function connectWS() {
         break;
 
       case 'layer_done':
-        if (msg.layer === 1) showStatus('layer 8 · aggregator');
+        if (msg.layer === 1) showStatus('calculating · aggregator');
         break;
 
       case 'agent_done':

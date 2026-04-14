@@ -309,23 +309,13 @@ async def emit(ws: WebSocket, event: str, **kwargs):
 
 # ── Intent classifier ──────────────────────────────────────────────────────────
 async def classify_intent(prompt: str, history: list[dict]) -> str:
-    """Classify prompt as casual | search | think using a single fast LLM call."""
-    history_text = ""
-    if history:
-        lines = []
-        for msg in history[-6:]:  # last 3 exchanges for classifier context
-            role = "User" if msg["role"] == "user" else "Mo-chi"
-            lines.append(f"{role}: {msg['content'][:200]}")
-        history_text = "\n".join(lines)
-
+    """Classify prompt as casual (greeting/small talk) or search (everything else).
+    Default is search — full MoA + web research runs unless it's clearly just a greeting."""
     classifier_prompt = (
-        f"Classify the latest message as exactly one of: casual, search, think\n\n"
-        f"casual  — greetings, small talk, thanks, short acknowledgments\n"
-        f"search  — needs live/current data: news, prices, weather, recent events, scores\n"
-        f"think   — questions, analysis, follow-ups, elaboration, concepts, creative tasks\n\n"
-        f"{'Conversation so far:\\n' + history_text + chr(10) + chr(10) if history_text else ''}"
-        f"Latest message: {prompt}\n\n"
-        f"Respond with exactly one word."
+        f"Is the following message purely a casual greeting or small talk "
+        f"(hi, hello, thanks, how are you, etc.) with no real question or topic?\n\n"
+        f"Message: {prompt}\n\n"
+        f"Respond with exactly one word: casual or search."
     )
     try:
         result = await CLIENTS["groq"].chat.completions.create(
@@ -334,13 +324,11 @@ async def classify_intent(prompt: str, history: list[dict]) -> str:
             messages=[{"role": "user", "content": classifier_prompt}],
             stream=False,
         )
-        word = (result.choices[0].message.content or "think").strip().lower()
-        if word not in ("casual", "search", "think"):
-            return "think"
-        return word
+        word = (result.choices[0].message.content or "search").strip().lower()
+        return "casual" if word == "casual" else "search"
     except Exception as e:
         print(f"[intent] classifier error: {e}")
-        return "think"
+        return "search"
 
 
 # ── Casual handler ─────────────────────────────────────────────────────────────
@@ -539,7 +527,7 @@ def _format_history(history: list[dict]) -> str:
 
 
 # ── MoA orchestrator ───────────────────────────────────────────────────────────
-async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bool):
+async def run_moa(ws: WebSocket, prompt: str, history: list[dict]):
     soul, ctx = _load_identity()
     identity_block = f"YOUR IDENTITY:\n{soul}"
     if ctx:
@@ -548,16 +536,14 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
 
     history_block = _format_history(history)
 
-    # ── Layer 0: web research (search intent only) ─────────────────────────────
-    context, raw_results = "", []
-    if do_search:
-        await emit(ws, "agent_start", agent="research",
-                   node_ids=list(range(162)), layer=0, sub_layer=0)
-        context, raw_results = await web_research(prompt)
-        await emit(ws, "research_results",
-                   results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
-                            for r in raw_results])
-        await emit(ws, "agent_complete", agent="research", layer=0)
+    # ── Layer 0: web research (always) ────────────────────────────────────────
+    await emit(ws, "agent_start", agent="research",
+               node_ids=list(range(162)), layer=0, sub_layer=0)
+    context, raw_results = await web_research(prompt)
+    await emit(ws, "research_results",
+               results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
+                        for r in raw_results])
+    await emit(ws, "agent_complete", agent="research", layer=0)
 
     # ── Memory retrieval ───────────────────────────────────────────────────────
     memory_context = await memory_retrieve(prompt)
@@ -642,10 +628,7 @@ async def websocket_endpoint(ws: WebSocket):
             if intent == "casual":
                 final_text = await run_casual(ws, prompt, session_history, soul, ctx)
             else:
-                final_text = await run_moa(
-                    ws, prompt, session_history,
-                    do_search=(intent == "search")
-                )
+                final_text = await run_moa(ws, prompt, session_history)
 
             if not final_text:
                 continue
