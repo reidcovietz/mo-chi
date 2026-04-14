@@ -194,7 +194,7 @@ LAYER1_AGENTS = [
         "sub_layer": 1,
         "nodes":     list(range(0, 33)),
         "provider":  "groq",
-        "model":     "llama-3.3-70b-versatile",
+        "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
         "system": (
             "You are an analytical reasoning agent. Given a prompt, provide a "
@@ -246,7 +246,7 @@ LAYER1_AGENTS = [
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
         "provider":  "groq",
-        "model":     "llama-3.3-70b-versatile",
+        "model":     "llama3-8b-8192",
         "max_tokens": 200,
         "system": (
             "You are a contrarian agent. Given a prompt, argue the opposite "
@@ -286,7 +286,7 @@ LAYER2_AGENT = {
     "name":      "aggregator",
     "nodes":     list(range(128, 162)),
     "provider":  "groq",
-    "model":     "llama-3.3-70b-versatile",
+    "model":     "mixtral-8x7b-32768",
     "max_tokens": 1024,
     "system": (
         "You are a synthesis agent. You receive seven specialist perspectives "

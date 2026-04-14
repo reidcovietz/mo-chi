@@ -338,7 +338,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div class="prop-card prop-analytical">
     <div class="prop-header">
       <span class="prop-indicator" id="ind-analytical"></span>
-      <span class="prop-label">Analytical · llama-3.3-70b</span>
+      <span class="prop-label">Analytical · llama-3.1-8b</span>
     </div>
     <div class="prop-text" id="text-analytical"></div>
   </div>
@@ -366,7 +366,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div class="prop-card prop-contrarian">
     <div class="prop-header">
       <span class="prop-indicator" id="ind-contrarian"></span>
-      <span class="prop-label">Contrarian · llama-3.3-70b</span>
+      <span class="prop-label">Contrarian · llama3-8b</span>
     </div>
     <div class="prop-text" id="text-contrarian"></div>
   </div>
@@ -390,7 +390,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <div id="agg-panel">
   <div id="agg-header">
     <span id="agg-indicator"></span>
-    <span id="agg-label">Aggregator</span>
+    <span id="agg-label">Aggregator · mixtral-8x7b</span>
   </div>
   <div id="agg-text"></div>
   <div id="nn-readout">
@@ -548,14 +548,14 @@ const { verts, edges } = buildGeodesic(SPHERE_R, 2, 0.09);
 
 // ── Per-agent emissive colours ────────────────────────────────────────────────
 const AGENT_COLOR = {
-  analytical:  new THREE.Color(0.28, 0.52, 1.00),   // blue   — Groq llama-3.3-70b
+  analytical:  new THREE.Color(0.28, 0.52, 1.00),   // blue   — Groq llama-3.1-8b
   creative:    new THREE.Color(0.76, 0.28, 1.00),   // purple — Groq mixtral-8x7b
   critic:      new THREE.Color(1.00, 0.52, 0.18),   // orange — Groq gemma2-9b
   visionary:   new THREE.Color(0.10, 0.82, 0.94),   // cyan   — OpenRouter mistral-7b
-  contrarian:  new THREE.Color(1.00, 0.18, 0.32),   // red    — Groq llama-3.3-70b
+  contrarian:  new THREE.Color(1.00, 0.18, 0.32),   // red    — Groq llama3-8b
   reasoning:   new THREE.Color(0.94, 0.78, 0.10),   // yellow — Groq llama-3.1-8b
   pragmatist:  new THREE.Color(0.14, 0.86, 0.62),   // teal   — Groq gemma2-9b
-  aggregator:  new THREE.Color(0.28, 0.90, 0.55),   // green  — Groq llama-3.3-70b (agg)
+  aggregator:  new THREE.Color(0.28, 0.90, 0.55),   // green  — Groq mixtral-8x7b (agg)
   research:    new THREE.Color(0.88, 0.93, 1.00),   // silver-white — web research
 };
 
@@ -643,14 +643,14 @@ function stopNN() { learnStep(); nnActive = false; }
 // Total 162 nodes split by model size: 70B→33, 8B→4, 70B→33, 20B→9,
 //                                       70B→33, 27B→13, 7B→3, 70B→34
 const AGENT_RANGES = [
-  { name: 'analytical', start:   0, end:  33 },  // llama-3.3-70b  (70B)
+  { name: 'analytical', start:   0, end:  33 },  // llama-3.1-8b   (8B)
   { name: 'creative',   start:  33, end:  37 },  // mixtral-8x7b   (MoE 8x7B)
   { name: 'critic',     start:  37, end:  70 },  // gemma2-9b      (9B)
   { name: 'visionary',  start:  70, end:  79 },  // mistral-7b     (7B)
-  { name: 'contrarian', start:  79, end: 112 },  // llama-3.3-70b  (70B)
+  { name: 'contrarian', start:  79, end: 112 },  // llama3-8b      (8B)
   { name: 'reasoning',  start: 112, end: 125 },  // llama-3.1-8b   (8B)
   { name: 'pragmatist', start: 125, end: 128 },  // gemma2-9b      (9B)
-  { name: 'aggregator', start: 128, end: 162 },  // llama-3.3-70b  (70B, layer 2)
+  { name: 'aggregator', start: 128, end: 162 },  // mixtral-8x7b   (MoE 8x7B, layer 2)
 ];
 const NODE_AGENT = new Array(verts.length);
 AGENT_RANGES.forEach(({ name, start, end }) => {
