@@ -26,68 +26,55 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   border-radius:50%; background:#444; transition:background .4s; cursor:default;
 }
 
-/* ── Proposer cards (left) ── */
-#proposers {
-  position:fixed; left:22px; top:58px; bottom:96px; width:210px;
-  display:flex; flex-direction:column; gap:7px;
+/* ── Agent orbs (left column) ── */
+#agent-orbs {
+  position:fixed; left:26px; top:58px; bottom:96px;
+  display:flex; flex-direction:column; justify-content:space-around;
+  width:32px; z-index:10;
 }
-.prop-card {
-  flex:1; border-radius:9px; padding:9px 11px;
-  background:rgba(255,255,255,0.022);
-  display:flex; flex-direction:column; gap:5px; overflow:hidden;
-  border-left:2px solid transparent;
-  transition:border-color .4s;
+.agent-orb {
+  width:12px; height:12px; border-radius:50%; cursor:pointer;
+  flex-shrink:0; position:relative;
+  transition:transform .2s, box-shadow .3s;
+  opacity:0.45;
 }
-.prop-header { display:flex; align-items:center; gap:7px; }
-.prop-indicator {
-  width:6px; height:6px; border-radius:50%; flex-shrink:0;
-  transition:box-shadow .3s;
+.agent-orb:hover { transform:scale(1.6); opacity:1; }
+.agent-orb.active {
+  opacity:1;
+  box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 10px currentColor;
+  transform:scale(1.25);
 }
-.prop-label { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; }
-.prop-text  {
-  font-size:10.5px; line-height:1.65; overflow-y:auto; flex:1;
-  white-space:pre-wrap; word-break:break-word; scrollbar-width:none;
+.agent-orb .orb-label {
+  position:absolute; left:20px; top:50%; transform:translateY(-50%);
+  font-size:8px; letter-spacing:2px; text-transform:uppercase;
+  white-space:nowrap; opacity:0; pointer-events:none;
+  transition:opacity .2s; padding:2px 6px;
+  background:rgba(7,8,15,0.75); border-radius:4px;
 }
+.agent-orb:hover .orb-label { opacity:1; }
 
-/* agent accent colours */
-.prop-analytical { border-color:rgba(80,140,255,.45); }
-.prop-analytical .prop-indicator { background:#508cff; }
-.prop-analytical .prop-label { color:rgba(100,160,255,.7); }
-.prop-analytical .prop-text  { color:rgba(130,175,255,.6); }
-
-.prop-creative { border-color:rgba(200,80,255,.45); }
-.prop-creative .prop-indicator { background:#c850ff; }
-.prop-creative .prop-label { color:rgba(210,110,255,.7); }
-.prop-creative .prop-text  { color:rgba(210,150,255,.6); }
-
-.prop-critic { border-color:rgba(255,140,50,.45); }
-.prop-critic .prop-indicator { background:#ff8c32; }
-.prop-critic .prop-label { color:rgba(255,160,80,.7); }
-.prop-critic .prop-text  { color:rgba(255,185,125,.6); }
-
-.prop-visionary { border-color:rgba(30,210,240,.45); }
-.prop-visionary .prop-indicator { background:#1ed2f0; }
-.prop-visionary .prop-label { color:rgba(60,220,245,.7); }
-.prop-visionary .prop-text  { color:rgba(120,220,240,.6); }
-
-.prop-contrarian { border-color:rgba(255,55,85,.45); }
-.prop-contrarian .prop-indicator { background:#ff3755; }
-.prop-contrarian .prop-label { color:rgba(255,90,110,.7); }
-.prop-contrarian .prop-text  { color:rgba(255,140,155,.6); }
-
-.prop-reasoning { border-color:rgba(240,200,30,.45); }
-.prop-reasoning .prop-indicator { background:#f0c81e; }
-.prop-reasoning .prop-label { color:rgba(240,210,60,.7); }
-.prop-reasoning .prop-text  { color:rgba(240,220,130,.6); }
-
-.prop-pragmatist { border-color:rgba(40,220,160,.45); }
-.prop-pragmatist .prop-indicator { background:#28dca0; }
-.prop-pragmatist .prop-label { color:rgba(60,225,170,.7); }
-.prop-pragmatist .prop-text  { color:rgba(120,230,190,.6); }
-
-/* active pulse on indicator */
-.prop-indicator.active {
-  box-shadow:0 0 0 3px rgba(255,255,255,0.08), 0 0 8px currentColor;
+/* ── Agent text popup ── */
+#agent-popup {
+  display:none; position:fixed; left:66px;
+  width:220px; max-height:340px;
+  background:rgba(6,10,20,0.94); border-radius:10px;
+  padding:12px 14px; z-index:30;
+  flex-direction:column; gap:7px;
+  border:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(14px);
+  animation:popup-in .2s ease;
+}
+@keyframes popup-in {
+  from { opacity:0; transform:translateX(-6px); }
+  to   { opacity:1; transform:none; }
+}
+#agent-popup-label {
+  font-size:8px; letter-spacing:2.5px; text-transform:uppercase; opacity:.55;
+}
+#agent-popup-text {
+  font-size:11px; line-height:1.7; overflow-y:auto; flex:1;
+  white-space:pre-wrap; word-break:break-word;
+  color:rgba(200,210,220,.75); scrollbar-width:none;
 }
 
 /* ── Aggregator / Conversation history panel (right) ── */
