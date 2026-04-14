@@ -337,36 +337,24 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   </div>
 </div>
 
-<!-- Layer 2 aggregator -->
+<!-- Layer 2 aggregator / conversation history -->
 <div id="agg-panel">
   <div id="agg-header">
     <span id="agg-indicator"></span>
     <span id="agg-label">Aggregator · llama-3.3-70b</span>
   </div>
-  <div id="agg-text"></div>
-  <div id="nn-readout">
-    <!-- rows injected by JS -->
-    <div id="nn-equation"></div>
-  </div>
+  <div id="convo-history"></div>
 </div>
 
-<!-- Result panel -->
-<div id="result-panel">
-  <div id="result-header">
-    <span id="result-label">synthesis · aggregator</span>
-    <span id="result-meta"></span>
-    <button id="result-followup-btn">follow up</button>
-    <button id="result-new-btn">new prompt</button>
-    <button id="result-close-btn" title="close">✕</button>
-  </div>
-  <div id="result-text"></div>
-  <div id="result-sources"></div>
+<!-- Neural calculations panel -->
+<div id="nn-panel">
+  <div id="nn-panel-header">neural readout</div>
+  <div id="nn-equation"></div>
 </div>
 
 <div id="ui">
   <input id="prompt-input" type="text" placeholder="Enter a prompt…" autocomplete="off"/>
   <button id="send-btn" disabled>SEND</button>
-  <button id="session-btn">SESSION</button>
 </div>
 
 <script type="importmap">
