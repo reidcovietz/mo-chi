@@ -892,6 +892,10 @@ const chainGroup = new THREE.Group();
 chainGroup.visible = true;
 scene.add(chainGroup);
 
+const chainResponseMeshes = []; // { mesh, fullText }
+const raycaster = new THREE.Raycaster();
+const mouse2d   = new THREE.Vector2();
+
 let sessionExchanges = [];
 const CHAIN_Y        =  4.1;   // above the sphere
 const CHAIN_START_X  = -2.8;
