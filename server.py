@@ -258,8 +258,8 @@ LAYER1_AGENTS = [
         "name":      "reasoning",
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
-        "provider":  "gemini",
-        "model":     "gemini-2.0-flash",
+        "provider":  "groq",
+        "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
         "system": (
             "You are a structured reasoning agent. Given a prompt, break it "

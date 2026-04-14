@@ -56,6 +56,12 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   font-family:'Courier New',monospace; transition:all .2s;
 }
 #result-new-btn:hover { background:rgba(80,230,150,0.08); color:rgba(80,230,150,0.9); }
+#result-close-btn {
+  font-size:11px; color:rgba(255,255,255,0.25); background:none; border:none;
+  cursor:pointer; padding:4px 6px; line-height:1; transition:color .2s;
+  font-family:'Courier New',monospace;
+}
+#result-close-btn:hover { color:rgba(255,255,255,0.6); }
 #result-text {
   font-size:13.5px; line-height:1.8; overflow-y:auto; flex:1;
   white-space:pre-wrap; word-break:break-word;
@@ -400,6 +406,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
     <span id="result-meta"></span>
     <button id="result-followup-btn">follow up</button>
     <button id="result-new-btn">new prompt</button>
+    <button id="result-close-btn" title="close">✕</button>
   </div>
   <div id="result-text"></div>
   <div id="result-sources"></div>
@@ -865,6 +872,8 @@ resultNewBtn.addEventListener('click', () => {
   clearChain();
 });
 
+document.getElementById('result-close-btn').addEventListener('click', hideResultPanel);
+
 document.getElementById('result-followup-btn').addEventListener('click', () => {
   hideResultPanel();
   document.getElementById('prompt-input').value = '';
@@ -898,52 +907,50 @@ function appendToken(agent, text) {
 }
 
 // ── Neural regression readout ─────────────────────────────────────────────────
-// Agent colour hex values for bar colours (matching AGENT_COLOR above)
 const AGENT_BAR_COLOR = {
   analytical: '#508cff', creative:  '#c850ff', critic:    '#ff8c32',
   visionary:  '#1ed2f0', contrarian:'#ff3755', reasoning: '#f0c81e',
   pragmatist: '#28dca0',
 };
 
+// Track actual tokens received per agent during the current run
+const agentTokenCounts = {};
+
+function trackToken(agent) {
+  agentTokenCounts[agent] = (agentTokenCounts[agent] || 0) + 1;
+}
+
+function resetTokenCounts() {
+  Object.keys(agentTokenCounts).forEach(k => delete agentTokenCounts[k]);
+}
+
 function computeNNReadout() {
-  // Mean |activation| per agent sector
-  const sectorActs = AGENT_RANGES.slice(0, 7).map(({ name, start, end }) => {
-    let sum = 0;
-    for (let i = start; i < end; i++) sum += Math.abs(act[i]);
-    return { name, value: sum / (end - start) };
-  });
+  const agents = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
 
-  // Mean activation of aggregator sector (output layer)
-  const aggStart = 128, aggEnd = 162;
-  let aggSum = 0;
-  for (let i = aggStart; i < aggEnd; i++) aggSum += Math.abs(act[i]);
-  const aggAct = aggSum / (aggEnd - aggStart);
+  // Use actual token counts — honest measure of what each agent contributed
+  const counts = agents.map(name => ({ name, value: agentTokenCounts[name] || 0 }));
+  const maxVal = Math.max(...counts.map(c => c.value), 1);
 
-  // σ of weighted sum: use mean edge weight magnitude into aggregator sector
-  // as a proxy for wᵢ
-  const wSum = sectorActs.reduce((s, { value }) => s + value, 0);
-  const y = Math.tanh(wSum / sectorActs.length); // σ = tanh, same as forward pass
+  // Weighted sum normalised to [0,1] per agent, then σ(mean) = output y
+  const weights = counts.map(({ value }) => value / maxVal);
+  const y = Math.tanh(weights.reduce((s, w) => s + w, 0) / weights.length);
 
-  // Render rows
   const readout = document.getElementById('nn-readout');
   const eqEl    = document.getElementById('nn-equation');
-
-  // Clear previous rows (keep equation div)
   Array.from(readout.children).forEach(c => { if (c.id !== 'nn-equation') c.remove(); });
 
-  const maxVal = Math.max(...sectorActs.map(a => a.value), 0.01);
-
-  sectorActs.forEach(({ name, value }) => {
-    const pct  = (value / maxVal) * 100;
+  counts.forEach(({ name, value }) => {
+    const pct   = (value / maxVal) * 100;
     const color = AGENT_BAR_COLOR[name] || '#888';
-    const row  = document.createElement('div');
+    const failed = value === 0;
+    const row   = document.createElement('div');
     row.className = 'nn-row';
     row.innerHTML = `
-      <span class="nn-label" style="color:${color}">${name}</span>
+      <span class="nn-label" style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${name}${failed ? ' ✗' : ''}</span>
       <div class="nn-bar-wrap">
-        <div class="nn-bar" style="width:${pct.toFixed(1)}%;background:${color}"></div>
+        <div class="nn-bar" style="width:${pct.toFixed(1)}%;background:${color}${failed ? '33' : ''}"></div>
       </div>
-      <span class="nn-val">${value.toFixed(2)}</span>`;
+      <span class="nn-val" style="color:${failed ? 'rgba(255,80,80,.4)' : ''}">${value}</span>`;
     readout.insertBefore(row, eqEl);
   });
 
@@ -952,8 +959,8 @@ function computeNNReadout() {
 }
 
 function clearNNReadout() {
-  const readout = document.getElementById('nn-readout');
-  readout.classList.remove('visible');
+  document.getElementById('nn-readout').classList.remove('visible');
+  resetTokenCounts();
 }
 
 // ── Session chain ──────────────────────────────────────────────────────────────
@@ -1117,6 +1124,7 @@ function connectWS() {
 
       case 'token':
         appendToken(msg.agent, msg.text);
+        if (msg.layer === 1) trackToken(msg.agent);
         break;
 
       case 'agent_complete':
