@@ -1178,14 +1178,14 @@ function connectWS() {
 connectWS();
 
 renderer.domElement.addEventListener('click', e => {
-  if (chainResponseMeshes.length === 0) return;
+  if (allResponseMeshes.length === 0) return;
   const rect = renderer.domElement.getBoundingClientRect();
   mouse2d.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
   mouse2d.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
   raycaster.setFromCamera(mouse2d, camera);
-  const hits = raycaster.intersectObjects(chainResponseMeshes.map(c => c.mesh));
+  const hits = raycaster.intersectObjects(allResponseMeshes.map(c => c.mesh));
   if (hits.length > 0) {
-    const found = chainResponseMeshes.find(c => c.mesh === hits[0].object);
+    const found = allResponseMeshes.find(c => c.mesh === hits[0].object);
     if (found) showResultPanel(found.fullText);
   }
 });
