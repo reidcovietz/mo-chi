@@ -297,32 +297,61 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <span class="mob-dot" id="mob-aggregator"  style="background:#50e696"></span>
 </div>
 
-<!-- Agent orbs (left column) -->
-<div id="agent-orbs">
-  <div class="agent-orb" id="orb-analytical"  data-agent="analytical"  style="background:#508cff;color:#508cff"><span class="orb-label" style="color:rgba(100,160,255,.8)">Analytical</span></div>
-  <div class="agent-orb" id="orb-creative"    data-agent="creative"    style="background:#c850ff;color:#c850ff"><span class="orb-label" style="color:rgba(210,110,255,.8)">Creative</span></div>
-  <div class="agent-orb" id="orb-critic"      data-agent="critic"      style="background:#ff8c32;color:#ff8c32"><span class="orb-label" style="color:rgba(255,160,80,.8)">Critic</span></div>
-  <div class="agent-orb" id="orb-visionary"   data-agent="visionary"   style="background:#1ed2f0;color:#1ed2f0"><span class="orb-label" style="color:rgba(60,220,245,.8)">Visionary</span></div>
-  <div class="agent-orb" id="orb-contrarian"  data-agent="contrarian"  style="background:#ff3755;color:#ff3755"><span class="orb-label" style="color:rgba(255,90,110,.8)">Contrarian</span></div>
-  <div class="agent-orb" id="orb-reasoning"   data-agent="reasoning"   style="background:#f0c81e;color:#f0c81e"><span class="orb-label" style="color:rgba(240,210,60,.8)">Reasoning</span></div>
-  <div class="agent-orb" id="orb-pragmatist"  data-agent="pragmatist"  style="background:#28dca0;color:#28dca0"><span class="orb-label" style="color:rgba(60,225,170,.8)">Pragmatist</span></div>
+<!-- Layer 1 proposers -->
+<div id="proposers">
+  <div class="prop-card prop-analytical">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-analytical"></span>
+      <span class="prop-label">Analytical · llama-3.1-8b</span>
+    </div>
+    <div class="prop-text" id="text-analytical"></div>
+  </div>
+  <div class="prop-card prop-creative">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-creative"></span>
+      <span class="prop-label">Creative · gemma2-9b</span>
+    </div>
+    <div class="prop-text" id="text-creative"></div>
+  </div>
+  <div class="prop-card prop-critic">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-critic"></span>
+      <span class="prop-label">Critic · gemma2-9b</span>
+    </div>
+    <div class="prop-text" id="text-critic"></div>
+  </div>
+  <div class="prop-card prop-visionary">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-visionary"></span>
+      <span class="prop-label">Visionary · mistral-7b</span>
+    </div>
+    <div class="prop-text" id="text-visionary"></div>
+  </div>
+  <div class="prop-card prop-contrarian">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-contrarian"></span>
+      <span class="prop-label">Contrarian · llama3-8b</span>
+    </div>
+    <div class="prop-text" id="text-contrarian"></div>
+  </div>
+  <div class="prop-card prop-reasoning">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-reasoning"></span>
+      <span class="prop-label">Reasoning · llama-3.1-8b</span>
+    </div>
+    <div class="prop-text" id="text-reasoning"></div>
+  </div>
+  <div class="prop-card prop-pragmatist">
+    <div class="prop-header">
+      <span class="prop-indicator" id="ind-pragmatist"></span>
+      <span class="prop-label">Pragmatist · gemma2-9b</span>
+    </div>
+    <div class="prop-text" id="text-pragmatist"></div>
+  </div>
 </div>
 
-<!-- Agent text popup -->
-<div id="agent-popup">
-  <div id="agent-popup-label"></div>
-  <div id="agent-popup-text"></div>
-</div>
-
-<!-- hidden agent text stores (not displayed, used by popup) -->
-<div id="text-analytical"  style="display:none"></div>
-<div id="text-creative"    style="display:none"></div>
-<div id="text-critic"      style="display:none"></div>
-<div id="text-visionary"   style="display:none"></div>
-<div id="text-contrarian"  style="display:none"></div>
-<div id="text-reasoning"   style="display:none"></div>
-<div id="text-pragmatist"  style="display:none"></div>
-<div id="text-aggregator"  style="display:none"></div>
+<!-- hidden aggregator text store -->
+<div id="text-aggregator" style="display:none"></div>
 
 <!-- Result panel -->
 <div id="result-panel">
