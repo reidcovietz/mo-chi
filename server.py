@@ -471,7 +471,7 @@ async def _call_model(ws: WebSocket, agent: dict, prompt: str,
     return "".join(full_text)
 
 
-AGENT_TIMEOUT = 20  # seconds before an agent is abandoned and fallback kicks in
+AGENT_TIMEOUT = 60  # seconds — long enough for slow models, short enough to catch true hangs
 
 async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
     await emit(ws, "agent_start",
@@ -487,8 +487,14 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
                 timeout=AGENT_TIMEOUT,
             )
             await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+            print(f"[agent] {agent['name']} ✓ ({agent['provider']}/{agent['model']})")
             return result
-        except (asyncio.TimeoutError, Exception):
+        except asyncio.TimeoutError:
+            print(f"[agent] {agent['name']} timeout on attempt {attempt+1}")
+            if attempt < 2:
+                await asyncio.sleep(1.0)
+        except Exception as e:
+            print(f"[agent] {agent['name']} error on attempt {attempt+1}: {e}")
             if attempt < 2:
                 await asyncio.sleep(1.0)
 
@@ -499,9 +505,11 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             timeout=AGENT_TIMEOUT,
         )
         await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+        print(f"[agent] {agent['name']} ✓ via fallback")
         return result
     except Exception as e:
         await emit(ws, "agent_complete", agent=agent["name"], layer=1)
+        print(f"[agent] {agent['name']} ✗ failed completely")
         raise Exception(f"{agent['name']} failed (primary + fallback): {e}") from e
 
 
