@@ -815,9 +815,7 @@ function clearPanels() {
 
 function appendToken(agent, text) {
   if (agent === 'aggregator') {
-    const el = document.getElementById('agg-text');
-    el.textContent += text;
-    el.scrollTop = el.scrollHeight;
+    updateAssistantPill(text);
   } else {
     const el = document.getElementById(`text-${agent}`);
     if (!el) return;
