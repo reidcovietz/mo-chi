@@ -828,7 +828,11 @@ resultNewBtn.addEventListener('click', () => {
   clearChain();
 });
 
-document.getElementById('result-followup-btn').addEventListener('click', hideResultPanel);
+document.getElementById('result-followup-btn').addEventListener('click', () => {
+  hideResultPanel();
+  document.getElementById('prompt-input').value = '';
+  document.getElementById('prompt-input').focus();
+});
 document.getElementById('result-followup-btn').style.display = 'none'; // hidden until session active
 
 document.getElementById('session-btn').addEventListener('click', toggleSession);
@@ -1028,8 +1032,15 @@ function connectWS() {
 
       case 'agent_done':
         beginFade();
-        if (sessionActive) addChainExchange(lastPrompt, msg.full_text);
-        setTimeout(showResultPanel, 600);
+        if (sessionActive) {
+          addChainExchange(lastPrompt, msg.full_text);
+          // Chatbot mode — keep input bar visible, focus input for next message
+          setTimeout(() => {
+            document.getElementById('prompt-input').focus();
+          }, 600);
+        } else {
+          setTimeout(showResultPanel, 600);
+        }
         break;
 
       case 'error':
@@ -1044,11 +1055,13 @@ connectWS();
 
 // ── Send / demo ───────────────────────────────────────────────────────────────
 function startAnimation() {
-  const text = document.getElementById('prompt-input').value.trim();
+  const input = document.getElementById('prompt-input');
+  const text  = input.value.trim();
   if (!text) return;
   lastPrompt = text;
 
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
+    input.value = '';          // text "enters the orb" — clear immediately
     ws.send(JSON.stringify({ type: 'prompt', text }));
     return;
   }
