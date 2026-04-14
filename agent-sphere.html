@@ -160,6 +160,39 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   color:rgba(150,230,190,.65);
 }
 
+/* ── Neural regression readout ── */
+#nn-readout {
+  flex-shrink:0;
+  border-top:1px solid rgba(80,230,150,.1);
+  padding-top:7px;
+  display:none;
+  flex-direction:column;
+  gap:3px;
+}
+#nn-readout.visible { display:flex; }
+.nn-row {
+  display:flex; align-items:center; gap:5px;
+}
+.nn-label {
+  font-size:7.5px; letter-spacing:1.5px; text-transform:uppercase;
+  width:68px; flex-shrink:0; opacity:.55;
+}
+.nn-bar-wrap {
+  flex:1; height:3px; background:rgba(255,255,255,.06); border-radius:2px; overflow:hidden;
+}
+.nn-bar {
+  height:100%; border-radius:2px;
+  transition:width .6s cubic-bezier(.16,1,.3,1);
+}
+.nn-val {
+  font-size:7.5px; width:26px; text-align:right; opacity:.5; flex-shrink:0;
+}
+#nn-equation {
+  font-size:8px; letter-spacing:.5px; margin-top:3px;
+  color:rgba(80,230,150,.45); text-align:center;
+  border-top:1px solid rgba(80,230,150,.07); padding-top:5px;
+}
+
 /* ── Input bar ── */
 #ui {
   position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
@@ -354,6 +387,10 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
     <span id="agg-label">Aggregator</span>
   </div>
   <div id="agg-text"></div>
+  <div id="nn-readout">
+    <!-- rows injected by JS -->
+    <div id="nn-equation"></div>
+  </div>
 </div>
 
 <!-- Result panel -->
@@ -860,6 +897,65 @@ function appendToken(agent, text) {
   }
 }
 
+// ── Neural regression readout ─────────────────────────────────────────────────
+// Agent colour hex values for bar colours (matching AGENT_COLOR above)
+const AGENT_BAR_COLOR = {
+  analytical: '#508cff', creative:  '#c850ff', critic:    '#ff8c32',
+  visionary:  '#1ed2f0', contrarian:'#ff3755', reasoning: '#f0c81e',
+  pragmatist: '#28dca0',
+};
+
+function computeNNReadout() {
+  // Mean |activation| per agent sector
+  const sectorActs = AGENT_RANGES.slice(0, 7).map(({ name, start, end }) => {
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += Math.abs(act[i]);
+    return { name, value: sum / (end - start) };
+  });
+
+  // Mean activation of aggregator sector (output layer)
+  const aggStart = 128, aggEnd = 162;
+  let aggSum = 0;
+  for (let i = aggStart; i < aggEnd; i++) aggSum += Math.abs(act[i]);
+  const aggAct = aggSum / (aggEnd - aggStart);
+
+  // σ of weighted sum: use mean edge weight magnitude into aggregator sector
+  // as a proxy for wᵢ
+  const wSum = sectorActs.reduce((s, { value }) => s + value, 0);
+  const y = Math.tanh(wSum / sectorActs.length); // σ = tanh, same as forward pass
+
+  // Render rows
+  const readout = document.getElementById('nn-readout');
+  const eqEl    = document.getElementById('nn-equation');
+
+  // Clear previous rows (keep equation div)
+  Array.from(readout.children).forEach(c => { if (c.id !== 'nn-equation') c.remove(); });
+
+  const maxVal = Math.max(...sectorActs.map(a => a.value), 0.01);
+
+  sectorActs.forEach(({ name, value }) => {
+    const pct  = (value / maxVal) * 100;
+    const color = AGENT_BAR_COLOR[name] || '#888';
+    const row  = document.createElement('div');
+    row.className = 'nn-row';
+    row.innerHTML = `
+      <span class="nn-label" style="color:${color}">${name}</span>
+      <div class="nn-bar-wrap">
+        <div class="nn-bar" style="width:${pct.toFixed(1)}%;background:${color}"></div>
+      </div>
+      <span class="nn-val">${value.toFixed(2)}</span>`;
+    readout.insertBefore(row, eqEl);
+  });
+
+  eqEl.textContent = `y = σ(Σ wᵢaᵢ + b) = ${y.toFixed(4)}`;
+  readout.classList.add('visible');
+}
+
+function clearNNReadout() {
+  const readout = document.getElementById('nn-readout');
+  readout.classList.remove('visible');
+}
+
 // ── Session chain ──────────────────────────────────────────────────────────────
 // A floating vertical string of node-pairs in world space (right of sphere).
 // Each exchange = prompt node (blue-white) + response node (green) + lines.
@@ -987,6 +1083,7 @@ function connectWS() {
     switch (msg.event) {
       case 'prompt_received':
         clearPanels();
+        clearNNReadout();
         promptStartTime = Date.now();
         beginFly();
         break;
@@ -1033,12 +1130,10 @@ function connectWS() {
 
       case 'agent_done':
         beginFade();
+        computeNNReadout();
         if (sessionActive) {
           addChainExchange(lastPrompt, msg.full_text);
-          // Chatbot mode — keep input bar visible, focus input for next message
-          setTimeout(() => {
-            document.getElementById('prompt-input').focus();
-          }, 600);
+          setTimeout(() => { document.getElementById('prompt-input').focus(); }, 600);
         } else {
           setTimeout(showResultPanel, 600);
         }
