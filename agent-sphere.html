@@ -861,6 +861,12 @@ function connectWS() {
         searchSources = msg.results || [];
         break;
 
+      case 'intent':
+        if (msg.intent === 'casual')  showStatus('mo-chi · casual');
+        if (msg.intent === 'search')  showStatus('mo-chi · searching web…');
+        if (msg.intent === 'think')   showStatus('mo-chi · thinking…');
+        break;
+
       case 'memory_loaded':
         showStatus(`memory · ${msg.count} past exchange${msg.count !== 1 ? 's' : ''} recalled`);
         break;

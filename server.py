@@ -11,12 +11,14 @@ Free API keys:
 
 Events:
   prompt_received  { text }
+  intent           { intent }                  ← casual | search | think
   layer_start      { layer, agents }
   agent_start      { agent, node_ids, layer }
   token            { text, agent, layer }
   agent_complete   { agent, layer }
   layer_done       { layer }
   agent_done       { full_text }
+  memory_loaded    { count }
   error            { message }
 """
 
@@ -34,10 +36,10 @@ load_dotenv()
 
 app = FastAPI(title="mo-chi")
 
-# ── MemPalace memory ──────────────────────────────────────────────────────────
-_PALACE_PATH = os.environ.get("MEMPALACE_PALACE_PATH", os.path.expanduser("~/.mempalace/palace"))
-_MEMORY_WING = "mo-chi"
-_MEMORY_ROOM = "conversations"
+# ── MemPalace memory ───────────────────────────────────────────────────────────
+_PALACE_PATH  = os.environ.get("MEMPALACE_PALACE_PATH", os.path.expanduser("~/.mempalace/palace"))
+_MEMORY_WING  = "mo-chi"
+_MEMORY_ROOM  = "conversations"
 _memory_ready = False
 
 def _init_memory():
@@ -53,7 +55,7 @@ def _init_memory():
 _init_memory()
 
 
-# ── Identity (soul + context) ─────────────────────────────────────────────────
+# ── Identity (soul + context) ──────────────────────────────────────────────────
 _SOUL_PATH    = os.path.join(_PALACE_PATH, "soul.md")
 _CONTEXT_PATH = os.path.join(_PALACE_PATH, "context.md")
 _SOUL_SEED    = (
@@ -168,6 +170,7 @@ async def memory_store(prompt: str, response: str):
     except Exception as e:
         print(f"[memory] store error: {e}")
 
+
 # ── Provider clients (all OpenAI-compatible) ───────────────────────────────────
 CLIENTS = {
     "groq": AsyncOpenAI(
@@ -185,12 +188,11 @@ CLIENTS = {
 }
 
 # ── Agent definitions ──────────────────────────────────────────────────────────
-# 162 nodes split evenly: 7 proposers × 20 nodes + aggregator 22 nodes
 LAYER1_AGENTS = [
     {
         "name":      "analytical",
         "sub_layer": 1,
-        "nodes":     list(range(0, 33)),    # 70B → 33 nodes
+        "nodes":     list(range(0, 33)),
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
@@ -203,7 +205,7 @@ LAYER1_AGENTS = [
     {
         "name":      "creative",
         "sub_layer": 2,
-        "nodes":     list(range(33, 37)),   # 8B  → 4 nodes
+        "nodes":     list(range(33, 37)),
         "provider":  "groq",
         "model":     "llama-3.1-8b-instant",
         "max_tokens": 200,
@@ -216,7 +218,7 @@ LAYER1_AGENTS = [
     {
         "name":      "critic",
         "sub_layer": 3,
-        "nodes":     list(range(37, 70)),   # 70B → 33 nodes
+        "nodes":     list(range(37, 70)),
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
         "max_tokens": 200,
@@ -229,7 +231,7 @@ LAYER1_AGENTS = [
     {
         "name":      "visionary",
         "sub_layer": 4,
-        "nodes":     list(range(70, 79)),   # ~20B → 9 nodes
+        "nodes":     list(range(70, 79)),
         "provider":  "gemini",
         "model":     "gemini-2.0-flash",
         "max_tokens": 200,
@@ -242,7 +244,7 @@ LAYER1_AGENTS = [
     {
         "name":      "contrarian",
         "sub_layer": 5,
-        "nodes":     list(range(79, 112)),  # 70B → 33 nodes
+        "nodes":     list(range(79, 112)),
         "provider":  "openrouter",
         "model":     "deepseek/deepseek-r1-distill-llama-70b:free",
         "max_tokens": 200,
@@ -255,7 +257,7 @@ LAYER1_AGENTS = [
     {
         "name":      "reasoning",
         "sub_layer": 6,
-        "nodes":     list(range(112, 125)), # 27B → 13 nodes
+        "nodes":     list(range(112, 125)),
         "provider":  "openrouter",
         "model":     "google/gemma-3-27b-it:free",
         "max_tokens": 200,
@@ -268,7 +270,7 @@ LAYER1_AGENTS = [
     {
         "name":      "pragmatist",
         "sub_layer": 7,
-        "nodes":     list(range(125, 128)), # 7B  → 3 nodes
+        "nodes":     list(range(125, 128)),
         "provider":  "openrouter",
         "model":     "mistralai/mistral-7b-instruct:free",
         "max_tokens": 200,
@@ -282,7 +284,7 @@ LAYER1_AGENTS = [
 
 LAYER2_AGENT = {
     "name":      "aggregator",
-    "nodes":     list(range(128, 162)),   # 70B → 34 nodes
+    "nodes":     list(range(128, 162)),
     "provider":  "groq",
     "model":     "llama-3.3-70b-versatile",
     "max_tokens": 1024,
@@ -294,7 +296,7 @@ LAYER2_AGENT = {
 }
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ── Routes ─────────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
     with open("agent-sphere.html", "r") as f:
@@ -305,31 +307,82 @@ async def emit(ws: WebSocket, event: str, **kwargs):
     await ws.send_text(json.dumps({"event": event, **kwargs}))
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
-    await ws.accept()
+# ── Intent classifier ──────────────────────────────────────────────────────────
+async def classify_intent(prompt: str, history: list[dict]) -> str:
+    """Classify prompt as casual | search | think using a single fast LLM call."""
+    history_text = ""
+    if history:
+        lines = []
+        for msg in history[-6:]:  # last 3 exchanges for classifier context
+            role = "User" if msg["role"] == "user" else "Mo-chi"
+            lines.append(f"{role}: {msg['content'][:200]}")
+        history_text = "\n".join(lines)
+
+    classifier_prompt = (
+        f"Classify the latest message as exactly one of: casual, search, think\n\n"
+        f"casual  — greetings, small talk, thanks, short acknowledgments\n"
+        f"search  — needs live/current data: news, prices, weather, recent events, scores\n"
+        f"think   — questions, analysis, follow-ups, elaboration, concepts, creative tasks\n\n"
+        f"{'Conversation so far:\\n' + history_text + chr(10) + chr(10) if history_text else ''}"
+        f"Latest message: {prompt}\n\n"
+        f"Respond with exactly one word."
+    )
     try:
-        while True:
-            data = await ws.receive_text()
-            msg = json.loads(data)
-            if msg.get("type") == "prompt":
-                prompt = msg.get("text", "").strip()
-                if prompt:
-                    await run_moa(ws, prompt)
-    except WebSocketDisconnect:
-        pass
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=5,
+            messages=[{"role": "user", "content": classifier_prompt}],
+            stream=False,
+        )
+        word = (result.choices[0].message.content or "think").strip().lower()
+        if word not in ("casual", "search", "think"):
+            return "think"
+        return word
     except Exception as e:
-        try:
-            await emit(ws, "error", message=str(e))
-        except Exception:
-            pass
+        print(f"[intent] classifier error: {e}")
+        return "think"
 
 
-# ── Web research (Layer 0) ────────────────────────────────────────────────────
+# ── Casual handler ─────────────────────────────────────────────────────────────
+async def run_casual(ws: WebSocket, prompt: str, history: list[dict], soul: str, ctx: str):
+    """Single fast model response for greetings and small talk."""
+    identity = f"Your identity:\n{soul}"
+    if ctx:
+        identity += f"\n\nYour context:\n{ctx}"
+
+    messages = [{"role": "system", "content": (
+        f"{identity}\n\n"
+        "You are mo-chi. Respond naturally and conversationally. Be warm, brief, yourself."
+    )}]
+    # Include full session history
+    messages += history
+    messages.append({"role": "user", "content": prompt})
+
+    await emit(ws, "agent_start", agent="aggregator",
+               node_ids=LAYER2_AGENT["nodes"], layer=2)
+
+    full_text = []
+    stream = await CLIENTS["groq"].chat.completions.create(
+        model="llama-3.1-8b-instant",
+        max_tokens=200,
+        messages=messages,
+        stream=True,
+    )
+    async for chunk in stream:
+        text = chunk.choices[0].delta.content or ""
+        if text:
+            full_text.append(text)
+            await emit(ws, "token", text=text, agent="aggregator", layer=2)
+            await asyncio.sleep(0)
+
+    await emit(ws, "agent_complete", agent="aggregator", layer=2)
+    return "".join(full_text)
+
+
+# ── Web research (Layer 0) ─────────────────────────────────────────────────────
 _search_cache: dict[str, tuple[str, list]] = {}
 
 async def web_research(query: str) -> tuple[str, list[dict]]:
-    """Fetch live web + news results via DuckDuckGo. Caches results per query."""
     cache_key = query.strip().lower()
     if cache_key in _search_cache:
         print(f"[research] cache hit for: {query!r}")
@@ -337,7 +390,6 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
 
     def _search():
         results = []
-        # Retry up to 3 times with increasing delays to handle rate limits
         for attempt in range(3):
             try:
                 import time
@@ -385,13 +437,11 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
     return result
 
 
-# ── Agent runners ─────────────────────────────────────────────────────────────
-# Fallback used when an agent's primary model fails all retries.
+# ── Agent runners ──────────────────────────────────────────────────────────────
 FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
 
 async def _call_model(ws: WebSocket, agent: dict, prompt: str,
                       provider: str, model: str) -> str:
-    """Single attempt: stream one model and return full text."""
     client = CLIENTS[provider]
     full_text = []
     stream = await client.chat.completions.create(
@@ -413,16 +463,12 @@ async def _call_model(ws: WebSocket, agent: dict, prompt: str,
 
 
 async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
-    """Run a proposer with up to 3 attempts, then fall back to a reliable model.
-    Every agent always completes — no prompt ever skips a layer node."""
     await emit(ws, "agent_start",
                agent=agent["name"],
                node_ids=agent["nodes"],
                layer=1,
                sub_layer=agent.get("sub_layer", 1))
 
-    last_err = None
-    # Try primary model up to 3 times
     for attempt in range(3):
         try:
             result = await _call_model(
@@ -430,11 +476,9 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             await emit(ws, "agent_complete", agent=agent["name"], layer=1)
             return result
         except Exception as e:
-            last_err = e
             if attempt < 2:
                 await asyncio.sleep(1.5)
 
-    # Primary exhausted — switch to fallback model (always available on Groq)
     try:
         result = await _call_model(
             ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"])
@@ -483,55 +527,63 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict) -> str:
     return "".join(full_text)
 
 
-# ── MoA orchestrator ──────────────────────────────────────────────────────────
-async def run_moa(ws: WebSocket, prompt: str):
-    await emit(ws, "prompt_received", text=prompt)
+# ── History formatter ──────────────────────────────────────────────────────────
+def _format_history(history: list[dict]) -> str:
+    if not history:
+        return ""
+    lines = ["CONVERSATION HISTORY (this session):"]
+    for msg in history:
+        role = "User" if msg["role"] == "user" else "Mo-chi"
+        lines.append(f"{role}: {msg['content']}")
+    return "\n\n".join(lines)
 
-    # ── Identity load ──────────────────────────────────────────────────────────
+
+# ── MoA orchestrator ───────────────────────────────────────────────────────────
+async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bool):
     soul, ctx = _load_identity()
     identity_block = f"YOUR IDENTITY:\n{soul}"
     if ctx:
         identity_block += f"\n\nYOUR CONTEXT:\n{ctx}"
     identity_block += "\n\n---"
 
-    # ── Layer 0: web research ──────────────────────────────────────────────────
-    await emit(ws, "agent_start", agent="research",
-               node_ids=list(range(162)), layer=0, sub_layer=0)
+    history_block = _format_history(history)
 
-    context, raw_results = await web_research(prompt)
+    # ── Layer 0: web research (search intent only) ─────────────────────────────
+    context, raw_results = "", []
+    if do_search:
+        await emit(ws, "agent_start", agent="research",
+                   node_ids=list(range(162)), layer=0, sub_layer=0)
+        context, raw_results = await web_research(prompt)
+        await emit(ws, "research_results",
+                   results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
+                            for r in raw_results])
+        await emit(ws, "agent_complete", agent="research", layer=0)
 
-    await emit(ws, "research_results",
-               results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
-                        for r in raw_results])
-    await emit(ws, "agent_complete", agent="research", layer=0)
-
-    # ── Memory retrieval (past exchanges) ────────────────────────────────────
+    # ── Memory retrieval ───────────────────────────────────────────────────────
     memory_context = await memory_retrieve(prompt)
     if memory_context:
         await emit(ws, "memory_loaded", count=memory_context.count("["))
 
-    # Enrich each agent's prompt with live web data + past memory.
-    # The instruction is explicit: agents must use this data, not training knowledge.
-    memory_block = f"\n\n{memory_context}\n\n---" if memory_context else ""
-    enriched = (
-        f"{identity_block}\n\n"
-        f"LIVE WEB DATA ({len(raw_results)} sources scraped right now — today's date, "
-        f"not your training cutoff):\n\n{context}"
-        f"{memory_block}\n\n"
-        f"---\n"
-        f"Using ONLY the live data above (cite specific sources where relevant), "
-        f"answer the following query from your specialist perspective:\n\n{prompt}"
-    ) if context else (
-        f"{identity_block}\n\n{memory_context}\n\n{prompt}" if memory_context
-        else f"{identity_block}\n\n{prompt}"
+    # ── Build enriched prompt ──────────────────────────────────────────────────
+    parts = [identity_block]
+    if history_block:
+        parts.append(history_block)
+    if context:
+        parts.append(
+            f"LIVE WEB DATA ({len(raw_results)} sources scraped right now):\n\n{context}"
+        )
+    if memory_context:
+        parts.append(memory_context)
+    parts.append(
+        f"---\nAnswer the following from your specialist perspective"
+        f"{', using the live data above (cite sources where relevant)' if context else ''}:\n\n{prompt}"
     )
+    enriched = "\n\n".join(parts)
 
-    # ── Layer 1: proposers ────────────────────────────────────────────────────
+    # ── Layer 1: proposers ─────────────────────────────────────────────────────
     await emit(ws, "layer_start", layer=1,
                agents=[a["name"] for a in LAYER1_AGENTS])
 
-    # Stagger task creation by 250 ms so activation propagates visually
-    # across the sphere sector by sector. LLMs run concurrently in the background.
     tasks = []
     for i, agent in enumerate(LAYER1_AGENTS):
         tasks.append(asyncio.create_task(run_proposer(ws, agent, enriched)))
@@ -542,25 +594,77 @@ async def run_moa(ws: WebSocket, prompt: str):
     layer1_outputs = {}
     for agent, result in zip(LAYER1_AGENTS, results):
         if isinstance(result, Exception):
-            # Should rarely happen — primary + fallback both failed
             await emit(ws, "error", message=str(result))
             layer1_outputs[agent["name"]] = "[unavailable]"
         else:
             layer1_outputs[agent["name"]] = result
 
     await emit(ws, "layer_done", layer=1)
-
     await emit(ws, "layer_start", layer=2, agents=["aggregator"])
 
     try:
         final_text = await run_aggregator(ws, layer1_outputs)
     except Exception as e:
         await emit(ws, "error", message=str(e))
-        return
+        return ""
 
     await emit(ws, "layer_done", layer=2)
-    await emit(ws, "agent_done", full_text=final_text)
+    return final_text
 
-    # Store exchange in memory and reflect on identity — both run in background
-    asyncio.create_task(memory_store(prompt, final_text))
-    asyncio.create_task(reflect_and_evolve(prompt, final_text))
+
+# ── WebSocket endpoint ─────────────────────────────────────────────────────────
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    session_history: list[dict] = []
+
+    try:
+        while True:
+            data = await ws.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") != "prompt":
+                continue
+
+            prompt = msg.get("text", "").strip()
+            if not prompt:
+                continue
+
+            await emit(ws, "prompt_received", text=prompt)
+
+            # ── Classify intent ────────────────────────────────────────────────
+            intent = await classify_intent(prompt, session_history)
+            await emit(ws, "intent", intent=intent)
+            print(f"[intent] {intent!r} — {prompt!r}")
+
+            # ── Route ──────────────────────────────────────────────────────────
+            soul, ctx = _load_identity()
+
+            if intent == "casual":
+                final_text = await run_casual(ws, prompt, session_history, soul, ctx)
+            else:
+                final_text = await run_moa(
+                    ws, prompt, session_history,
+                    do_search=(intent == "search")
+                )
+
+            if not final_text:
+                continue
+
+            await emit(ws, "agent_done", full_text=final_text)
+
+            # ── Update session history ─────────────────────────────────────────
+            session_history.append({"role": "user",      "content": prompt})
+            session_history.append({"role": "assistant", "content": final_text})
+
+            # ── Background: store memory + reflect ────────────────────────────
+            if intent != "casual":
+                asyncio.create_task(memory_store(prompt, final_text))
+                asyncio.create_task(reflect_and_evolve(prompt, final_text))
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await emit(ws, "error", message=str(e))
+        except Exception:
+            pass
