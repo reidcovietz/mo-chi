@@ -1010,6 +1010,8 @@ function connectWS() {
 
       case 'intent':
         if (msg.intent === 'casual') showStatus('mo-chi · responding…');
+        if (msg.intent === 'direct') showStatus('mo-chi · thinking…');
+        if (msg.intent === 'search') showStatus('mo-chi · searching web…');
         break;
 
       case 'memory_loaded':

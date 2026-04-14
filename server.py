@@ -309,13 +309,32 @@ async def emit(ws: WebSocket, event: str, **kwargs):
 
 # ── Intent classifier ──────────────────────────────────────────────────────────
 async def classify_intent(prompt: str, history: list[dict]) -> str:
-    """Classify prompt as casual (greeting/small talk) or search (everything else).
-    Default is search — full MoA + web research runs unless it's clearly just a greeting."""
+    """Classify prompt into one of three intents:
+      casual  — pure greeting or small talk, no real question
+      direct  — talking to/with the bot, opinion/reflection, follow-up, general knowledge,
+                uses 'we/us/you', creative or analytical task that doesn't need live data
+      search  — genuinely needs live/current external data: news, prices, scores,
+                weather, recent events, real-time facts
+    Default is direct — search only fires when live data is clearly needed."""
     classifier_prompt = (
-        f"Is the following message purely a casual greeting or small talk "
-        f"(hi, hello, thanks, how are you, etc.) with no real question or topic?\n\n"
+        "Classify the following message into exactly one of: casual, direct, search\n\n"
+        "casual  — pure greeting or small talk with no real question (hi, hello, thanks, how are you)\n"
+        "direct  — talking to or with the bot; uses 'we', 'us', 'you', 'your'; asking for opinions,\n"
+        "          reflection, elaboration, or creative/analytical thinking; general knowledge\n"
+        "          questions the bot can answer without live data\n"
+        "search  — explicitly needs live or current external data: breaking news, today's prices,\n"
+        "          scores, weather, recent releases, real-time facts\n\n"
+        "Examples:\n"
+        "  'hi there' → casual\n"
+        "  'we should explore this idea' → direct\n"
+        "  'what do you think about consciousness?' → direct\n"
+        "  'tell me more about yourself' → direct\n"
+        "  'explain quantum entanglement' → direct\n"
+        "  'what are the latest AI news headlines?' → search\n"
+        "  'current bitcoin price' → search\n"
+        "  'who won the game last night?' → search\n\n"
         f"Message: {prompt}\n\n"
-        f"Respond with exactly one word: casual or search."
+        "Respond with exactly one word."
     )
     try:
         result = await CLIENTS["groq"].chat.completions.create(
@@ -324,11 +343,13 @@ async def classify_intent(prompt: str, history: list[dict]) -> str:
             messages=[{"role": "user", "content": classifier_prompt}],
             stream=False,
         )
-        word = (result.choices[0].message.content or "search").strip().lower()
-        return "casual" if word == "casual" else "search"
+        word = (result.choices[0].message.content or "direct").strip().lower()
+        if word not in ("casual", "direct", "search"):
+            return "direct"
+        return word
     except Exception as e:
         print(f"[intent] classifier error: {e}")
-        return "search"
+        return "direct"
 
 
 # ── Casual handler ─────────────────────────────────────────────────────────────
@@ -527,7 +548,7 @@ def _format_history(history: list[dict]) -> str:
 
 
 # ── MoA orchestrator ───────────────────────────────────────────────────────────
-async def run_moa(ws: WebSocket, prompt: str, history: list[dict]):
+async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bool = True):
     soul, ctx = _load_identity()
     identity_block = f"YOUR IDENTITY:\n{soul}"
     if ctx:
@@ -536,14 +557,16 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict]):
 
     history_block = _format_history(history)
 
-    # ── Layer 0: web research (always) ────────────────────────────────────────
-    await emit(ws, "agent_start", agent="research",
-               node_ids=list(range(162)), layer=0, sub_layer=0)
-    context, raw_results = await web_research(prompt)
-    await emit(ws, "research_results",
-               results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
-                        for r in raw_results])
-    await emit(ws, "agent_complete", agent="research", layer=0)
+    # ── Layer 0: web research (search intent only) ─────────────────────────────
+    context, raw_results = "", []
+    if do_search:
+        await emit(ws, "agent_start", agent="research",
+                   node_ids=list(range(162)), layer=0, sub_layer=0)
+        context, raw_results = await web_research(prompt)
+        await emit(ws, "research_results",
+                   results=[{"title": r.get("title",""), "url": r.get("href", r.get("source",""))}
+                            for r in raw_results])
+        await emit(ws, "agent_complete", agent="research", layer=0)
 
     # ── Memory retrieval ───────────────────────────────────────────────────────
     memory_context = await memory_retrieve(prompt)
@@ -628,7 +651,10 @@ async def websocket_endpoint(ws: WebSocket):
             if intent == "casual":
                 final_text = await run_casual(ws, prompt, session_history, soul, ctx)
             else:
-                final_text = await run_moa(ws, prompt, session_history)
+                final_text = await run_moa(
+                    ws, prompt, session_history,
+                    do_search=(intent == "search")
+                )
 
             if not final_text:
                 continue
