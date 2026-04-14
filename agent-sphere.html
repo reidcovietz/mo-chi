@@ -714,72 +714,121 @@ function setIndicator(agent, active) {
   }
 }
 
-// ── Conversation history ───────────────────────────────────────────────────
-const convoHistory = document.getElementById('convo-history');
-let   streamingPill  = null;   // the assistant pill currently being streamed into
-let   streamBuffer   = '';     // full aggregator text buffer for current response
-let   searchSources  = [];
+// ── Result panel ──────────────────────────────────────────────────────────────
+const resultPanel   = document.getElementById('result-panel');
+const resultText    = document.getElementById('result-text');
+const resultMeta    = document.getElementById('result-meta');
+const resultSources = document.getElementById('result-sources');
+const resultNewBtn  = document.getElementById('result-new-btn');
+const uiBar         = document.getElementById('ui');
+let   promptStartTime = 0;
+let   searchSources   = [];
+let   lastFullResponse = '';
 
-function addUserPill(text) {
-  const pill = document.createElement('div');
-  pill.className = 'convo-msg user';
-  pill.textContent = text.length > 60 ? text.slice(0, 58) + '…' : text;
-  convoHistory.appendChild(pill);
-  convoHistory.scrollTop = convoHistory.scrollHeight;
+function showResultPanel(fullText) {
+  resultText.textContent = fullText || document.getElementById('text-aggregator').textContent;
+  const secs = ((Date.now() - promptStartTime) / 1000).toFixed(1);
+  resultMeta.textContent = `${secs}s`;
+
+  // Agent source chips
+  const CHIP_COLORS = {
+    analytical:'rgba(80,140,255', creative:'rgba(200,80,255', critic:'rgba(255,140,50',
+    visionary:'rgba(30,210,240',  contrarian:'rgba(255,55,85', reasoning:'rgba(240,200,30',
+    pragmatist:'rgba(40,220,160',
+  };
+  resultSources.innerHTML = '';
+  searchSources.slice(0, 6).forEach(s => {
+    if (!s.title) return;
+    const chip = document.createElement('a');
+    chip.className = 'source-chip';
+    chip.textContent = s.title.length > 40 ? s.title.slice(0, 38) + '\u2026' : s.title;
+    chip.style.borderColor = 'rgba(200,220,255,.35)';
+    chip.style.color       = 'rgba(200,220,255,.7)';
+    if (s.url) { chip.href = s.url; chip.target = '_blank'; chip.style.textDecoration = 'none'; }
+    resultSources.appendChild(chip);
+  });
+  ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'].forEach(a => {
+    const el = document.getElementById(`text-${a}`);
+    if (!el || !el.textContent.trim()) return;
+    const chip = document.createElement('span');
+    chip.className = 'source-chip';
+    chip.textContent = a;
+    const c = CHIP_COLORS[a];
+    chip.style.borderColor = `${c},.45)`;
+    chip.style.color       = `${c},.8)`;
+    resultSources.appendChild(chip);
+  });
+  resultSources.classList.toggle('visible', resultSources.children.length > 0);
+
+  resultPanel.classList.add('visible');
+  uiBar.style.opacity = '0';
+  uiBar.style.pointerEvents = 'none';
 }
 
-function startAssistantPill() {
-  streamBuffer = '';
-  streamingPill = document.createElement('div');
-  streamingPill.className = 'convo-msg assistant convo-cursor';
-  streamingPill.textContent = '';
-  convoHistory.appendChild(streamingPill);
-  convoHistory.scrollTop = convoHistory.scrollHeight;
+function hideResultPanel() {
+  resultPanel.classList.remove('visible');
+  uiBar.style.opacity = '1';
+  uiBar.style.pointerEvents = '';
+  document.getElementById('prompt-input').focus();
 }
 
-function updateAssistantPill(text) {
-  streamBuffer += text;
-  if (!streamingPill) return;
-  const preview = streamBuffer.length > 120 ? streamBuffer.slice(0, 118) + '…' : streamBuffer;
-  streamingPill.textContent = preview;
-  convoHistory.scrollTop = convoHistory.scrollHeight;
-}
-
-function finalizeAssistantPill() {
-  if (!streamingPill) return;
-  streamingPill.classList.remove('convo-cursor');
-  const preview = streamBuffer.length > 120 ? streamBuffer.slice(0, 118) + '…' : streamBuffer;
-  streamingPill.textContent = preview;
-  streamingPill = null;
-  streamBuffer  = '';
-}
-
-function clearConvoPanel() {
-  // Don't clear conversation history — it persists across prompts in the session
-  // Only reset sources and streaming state
-  searchSources  = [];
-  streamingPill  = null;
-  streamBuffer   = '';
-}
-
-let promptStartTime = 0;
+resultNewBtn.addEventListener('click', () => { hideResultPanel(); clearChain(); });
+document.getElementById('result-close-btn').addEventListener('click', hideResultPanel);
 
 function clearPanels() {
-  ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'].forEach(a => {
+  ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist','aggregator'].forEach(a => {
     const el = document.getElementById(`text-${a}`);
     if (el) el.textContent = '';
   });
-  clearConvoPanel();
+  searchSources = [];
+  lastFullResponse = '';
+  hideResultPanel();
+  closeAgentPopup();
 }
 
+// ── Agent orb popup ────────────────────────────────────────────────────────────
+const agentPopupEl    = document.getElementById('agent-popup');
+const agentPopupLabel = document.getElementById('agent-popup-label');
+const agentPopupText  = document.getElementById('agent-popup-text');
+let   activePopupAgent = null;
+
+function openAgentPopup(agent, orbEl) {
+  const text = document.getElementById(`text-${agent}`)?.textContent || '(waiting\u2026)';
+  agentPopupLabel.textContent = agent;
+  agentPopupText.textContent  = text;
+  // Position to the right of the orb
+  const rect = orbEl.getBoundingClientRect();
+  agentPopupEl.style.top = Math.min(rect.top, window.innerHeight - 360) + 'px';
+  agentPopupEl.style.display = 'flex';
+  activePopupAgent = agent;
+}
+
+function closeAgentPopup() {
+  agentPopupEl.style.display = 'none';
+  activePopupAgent = null;
+}
+
+document.querySelectorAll('.agent-orb').forEach(orb => {
+  orb.addEventListener('click', e => {
+    const agent = orb.dataset.agent;
+    if (activePopupAgent === agent) { closeAgentPopup(); return; }
+    openAgentPopup(agent, orb);
+    e.stopPropagation();
+  });
+});
+
+document.addEventListener('click', e => {
+  if (!agentPopupEl.contains(e.target)) closeAgentPopup();
+});
+
 function appendToken(agent, text) {
-  if (agent === 'aggregator') {
-    updateAssistantPill(text);
-  } else {
-    const el = document.getElementById(`text-${agent}`);
-    if (!el) return;
-    el.textContent += text;
-    el.scrollTop = el.scrollHeight;
+  const el = document.getElementById(`text-${agent}`);
+  if (!el) return;
+  el.textContent += text;
+  // If popup is open for this agent, update it live
+  if (activePopupAgent === agent) {
+    agentPopupText.textContent = el.textContent;
+    agentPopupText.scrollTop   = agentPopupText.scrollHeight;
   }
 }
 
