@@ -183,10 +183,33 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 #send-btn:hover    { background:rgba(55,190,75,.2); }
 #send-btn:disabled { opacity:.3; cursor:default; }
 
+#session-btn {
+  padding:11px 16px; background:rgba(80,140,255,.07);
+  border:1px solid rgba(80,140,255,.22); border-radius:9px;
+  color:rgba(120,170,255,.65); cursor:pointer; font-family:'Courier New',monospace;
+  font-size:11px; letter-spacing:1px; transition:all .2s; white-space:nowrap;
+}
+#session-btn:hover  { background:rgba(80,140,255,.16); color:rgba(160,200,255,.9); }
+#session-btn.active {
+  background:rgba(80,140,255,.18);
+  border-color:rgba(80,140,255,.52);
+  color:rgba(180,215,255,.95);
+  box-shadow:0 0 10px rgba(80,140,255,.2);
+}
+
+#result-followup-btn {
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(80,140,255,.6); background:none; border:1px solid rgba(80,140,255,.22);
+  border-radius:5px; padding:4px 10px; cursor:pointer;
+  font-family:'Courier New',monospace; transition:all .2s;
+}
+#result-followup-btn:hover { background:rgba(80,140,255,.1); color:rgba(120,170,255,.9); }
+
 /* ── Mobile agent strip (replaces side panels on small screens) ── */
 #mobile-agents { display:none; }
 
 @media (max-width: 768px) {
+  #session-btn { font-size:10px; padding:11px 13px; letter-spacing:0; }
   /* Hide desktop side panels — sphere IS the show on mobile */
   #proposers, #agg-panel { display:none; }
 
@@ -338,6 +361,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div id="result-header">
     <span id="result-label">synthesis · aggregator</span>
     <span id="result-meta"></span>
+    <button id="result-followup-btn">follow up</button>
     <button id="result-new-btn">new prompt</button>
   </div>
   <div id="result-text"></div>
@@ -347,6 +371,7 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 <div id="ui">
   <input id="prompt-input" type="text" placeholder="Enter a prompt…" autocomplete="off"/>
   <button id="send-btn" disabled>SEND</button>
+  <button id="session-btn">SESSION</button>
 </div>
 
 <script type="importmap">
@@ -798,7 +823,15 @@ function hideResultPanel() {
   document.getElementById('prompt-input').focus();
 }
 
-resultNewBtn.addEventListener('click', hideResultPanel);
+resultNewBtn.addEventListener('click', () => {
+  hideResultPanel();
+  clearChain();
+});
+
+document.getElementById('result-followup-btn').addEventListener('click', hideResultPanel);
+document.getElementById('result-followup-btn').style.display = 'none'; // hidden until session active
+
+document.getElementById('session-btn').addEventListener('click', toggleSession);
 
 function clearPanels() {
   ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'].forEach(a => {
@@ -820,6 +853,115 @@ function appendToken(agent, text) {
     if (!el) return;
     el.textContent += text;
     el.scrollTop = el.scrollHeight;
+  }
+}
+
+// ── Session chain ──────────────────────────────────────────────────────────────
+// A floating vertical string of node-pairs in world space (right of sphere).
+// Each exchange = prompt node (blue-white) + response node (green) + lines.
+const chainGroup = new THREE.Group();
+chainGroup.visible = false;
+scene.add(chainGroup);
+
+let sessionActive   = false;
+let sessionExchanges = [];       // { prompt, response } per round
+const CHAIN_X       =  5.9;     // right of sphere (sphere radius 3.2, so ~2.7 units clear)
+const CHAIN_START_Y =  2.4;
+const CHAIN_STEP    =  1.15;    // vertical gap between exchanges
+
+const chainPromptGeo   = new THREE.SphereGeometry(0.075, 10, 10);
+const chainResponseGeo = new THREE.SphereGeometry(0.115, 10, 10);
+
+function addChainExchange(promptText, responseText) {
+  const idx = sessionExchanges.length;
+  sessionExchanges.push({ prompt: promptText, response: responseText });
+
+  const y = CHAIN_START_Y - idx * CHAIN_STEP;
+
+  // Prompt node — soft blue-white
+  const pMat = new THREE.MeshStandardMaterial({
+    color:             new THREE.Color(0.12, 0.18, 0.38),
+    emissive:          new THREE.Color(0.52, 0.68, 1.0),
+    emissiveIntensity: 0.5,
+    roughness: 0.3, metalness: 0.65,
+    transparent: true, opacity: 0,
+  });
+  const pMesh = new THREE.Mesh(chainPromptGeo, pMat);
+  pMesh.position.set(CHAIN_X, y, 0);
+  chainGroup.add(pMesh);
+
+  // Response node — aggregator green
+  const rMat = new THREE.MeshStandardMaterial({
+    color:             new THREE.Color(0.06, 0.28, 0.16),
+    emissive:          AGENT_COLOR.aggregator.clone(),
+    emissiveIntensity: 0.72,
+    roughness: 0.3, metalness: 0.65,
+    transparent: true, opacity: 0,
+  });
+  const rMesh = new THREE.Mesh(chainResponseGeo, rMat);
+  rMesh.position.set(CHAIN_X, y - 0.44, 0);
+  chainGroup.add(rMesh);
+
+  // Inner line (prompt → response within this exchange)
+  const innerGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(CHAIN_X, y - 0.075, 0),
+    new THREE.Vector3(CHAIN_X, y - 0.36, 0),
+  ]);
+  const innerLine = new THREE.Line(innerGeo,
+    new THREE.LineBasicMaterial({ color: 0x3366aa, transparent: true, opacity: 0 }));
+  chainGroup.add(innerLine);
+
+  // Connector line (previous response → this prompt)
+  if (idx > 0) {
+    const prevY = CHAIN_START_Y - (idx - 1) * CHAIN_STEP;
+    const connGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(CHAIN_X, prevY - 0.555, 0),
+      new THREE.Vector3(CHAIN_X, y + 0.075,     0),
+    ]);
+    const connLine = new THREE.Line(connGeo,
+      new THREE.LineBasicMaterial({ color: 0x1a2840, transparent: true, opacity: 0 }));
+    chainGroup.add(connLine);
+    // Fade connector in
+    _fadeIn(connLine.material, 0.32, 900);
+  }
+
+  // Fade nodes and lines in
+  _fadeIn(pMat,        1.0,  700);
+  _fadeIn(rMat,        1.0,  700);
+  _fadeIn(innerLine.material, 0.55, 700);
+}
+
+function _fadeIn(mat, targetOpacity, durationMs) {
+  const start = performance.now();
+  function tick() {
+    const t = Math.min((performance.now() - start) / durationMs, 1);
+    mat.opacity = t * targetOpacity;
+    if (t < 1) requestAnimationFrame(tick);
+    else if (targetOpacity >= 1.0) { mat.transparent = false; }
+  }
+  tick();
+}
+
+function clearChain() {
+  while (chainGroup.children.length > 0) {
+    const obj = chainGroup.children[0];
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) obj.material.dispose();
+    chainGroup.remove(obj);
+  }
+  sessionExchanges = [];
+}
+
+function toggleSession() {
+  sessionActive = !sessionActive;
+  chainGroup.visible = sessionActive;
+  const btn = document.getElementById('session-btn');
+  btn.classList.toggle('active', sessionActive);
+  const followUpBtn = document.getElementById('result-followup-btn');
+  followUpBtn.style.display = sessionActive ? '' : 'none';
+  if (sessionActive) {
+    showStatus('session · active');
+    setTimeout(hideStatus, 1800);
   }
 }
 
@@ -886,6 +1028,7 @@ function connectWS() {
 
       case 'agent_done':
         beginFade();
+        if (sessionActive) addChainExchange(lastPrompt, msg.full_text);
         setTimeout(showResultPanel, 600);
         break;
 
