@@ -1248,7 +1248,8 @@ function connectWS() {
       case 'agent_start': {
         activateNodes(msg.node_ids, msg.agent);
         if (msg.layer === 0) {
-          showStatus('searching web…');
+          if (msg.agent === 'director') showStatus('director · briefing agents…');
+          else showStatus('searching web…');
         } else if (msg.layer === 1) {
           activeAgents.add(msg.agent);
           showStatus('calculating · ' + [...activeAgents].join(' · '));
