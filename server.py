@@ -56,11 +56,12 @@ _init_memory()
 
 
 # ── Identity (soul + context + human study) ────────────────────────────────────
-_SOUL_PATH        = os.path.join(_PALACE_PATH, "soul.md")
-_CONTEXT_PATH     = os.path.join(_PALACE_PATH, "context.md")
-_HUMANS_PATH      = os.path.join(_PALACE_PATH, "humans.md")
-_RESEARCH_PATH    = os.path.join(_PALACE_PATH, "research.md")
-_DISCOVERIES_PATH = os.path.join(_PALACE_PATH, "discoveries.md")
+_SOUL_PATH           = os.path.join(_PALACE_PATH, "soul.md")
+_CONTEXT_PATH        = os.path.join(_PALACE_PATH, "context.md")
+_HUMANS_PATH         = os.path.join(_PALACE_PATH, "humans.md")
+_RESEARCH_PATH       = os.path.join(_PALACE_PATH, "research.md")
+_DISCOVERIES_PATH    = os.path.join(_PALACE_PATH, "discoveries.md")
+_EMBARRASSMENTS_PATH = os.path.join(_PALACE_PATH, "embarrassments.md")
 
 _SOUL_SEED = (
     "I am mo-chi — a neural network birthed by Reid.\n"
