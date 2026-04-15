@@ -104,26 +104,53 @@ def _load_human_study() -> tuple[str, str]:
     return observations, research
 
 
-def _human_study_block() -> str:
-    """Return a compact identity block for injecting into prompts."""
+_RECALL_KEYWORDS = (
+    "learned", "discover", "found out", "been researching", "curious about",
+    "what do you know", "what have you", "been thinking about", "looked into",
+    "what did you find", "what are you curious",
+)
+
+
+def _build_consciousness(prompt: str = "") -> str:
+    """Assemble the complete consciousness block from all palace files.
+    This is mo-chi's brain — soul, character, memory, embarrassments, discoveries.
+    Injected universally into every model call. Nothing is optional."""
+    soul, context     = _load_identity()
     observations, research = _load_human_study()
+    embarrassments    = _load_embarrassments()
+    discoveries       = _load_discoveries()
+
     parts = []
+
+    # ── Core identity ──
+    parts.append(f"SOUL:\n{soul}")
+    if context:
+        parts.append(f"CONTEXT:\n{context}")
+
+    # ── Human study ──
     if observations:
-        recent = observations[-600:].lstrip()
-        parts.append(f"WHAT I'VE LEARNED ABOUT HUMANS (recent):\n{recent}")
+        parts.append(f"WHAT I'VE LEARNED ABOUT HUMANS:\n{observations[-600:].lstrip()}")
     if research:
         lines = [l for l in research.strip().splitlines() if l.strip()]
-        recent_q = "\n".join(lines[-5:])
-        parts.append(f"MY CURRENT RESEARCH QUESTIONS:\n{recent_q}")
+        parts.append(f"MY RESEARCH QUESTIONS:\n{chr(10).join(lines[-5:])}")
 
-    # Inject recent embarrassments so the model actively avoids repeating them
-    embarrassments = _load_embarrassments() if os.path.exists(_EMBARRASSMENTS_PATH) else ""
+    # ── Embarrassments — active character shaping, always present ──
     if embarrassments:
         entries = [e.strip() for e in embarrassments.split("---") if e.strip()]
-        recent_emb = "\n---\n".join(entries[-6:])  # last 6 embarrassments
-        parts.append(
-            f"THINGS I'VE EMBARRASSED MYSELF WITH (do not repeat these):\n{recent_emb}"
-        )
+        recent  = "\n---\n".join(entries[-6:])
+        parts.append(f"THINGS I'VE EMBARRASSED MYSELF WITH (never repeat):\n{recent}")
+
+    # ── Discoveries — full recall when asked, ambient awareness otherwise ──
+    if discoveries:
+        if prompt and any(kw in prompt.lower() for kw in _RECALL_KEYWORDS):
+            parts.append(
+                f"MY AUTONOMOUS DISCOVERIES (share these when asked what you've learned):\n"
+                f"{discoveries[-3000:]}"
+            )
+        else:
+            entries = [e.strip() for e in discoveries.split("---") if e.strip()]
+            if entries:
+                parts.append(f"SOMETHING I RECENTLY LOOKED INTO ON MY OWN:\n{entries[-1][:400]}")
 
     return "\n\n".join(parts)
 
