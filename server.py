@@ -485,6 +485,7 @@ async def reflect_on_response(prompt: str, response: str):
         os.makedirs(_PALACE_PATH, exist_ok=True)
         with open(_EMBARRASSMENTS_PATH, "a") as f:
             f.write(entry + "\n")
+        _log_brain("write", "embarrassments.md", f"[{severity}] {embarrassing[:50]}")
         print(f"[embarrassment] logged [{severity}]: {embarrassing[:80]}")
 
         # Every 5 exchanges, synthesize patterns and evolve character
