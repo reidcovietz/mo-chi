@@ -1010,8 +1010,7 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
         f"Seven specialist perspectives (each includes a confidence rating):\n\n{combined}"
         f"{sources_block}\n\n"
         f"Evaluate each input by its confidence level and evidence quality before synthesizing. "
-        f"Weight stronger inputs more heavily. Flag any consensus that might reflect shared bias rather than evidence. "
-        f"If this is a follow-up, acknowledge the thread. End with FOLLOWUP: as instructed."
+        f"Weight stronger inputs more heavily. Flag any consensus that might reflect shared bias rather than evidence."
     )
 
     await emit(ws, "agent_start",
