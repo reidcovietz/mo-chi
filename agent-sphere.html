@@ -790,7 +790,14 @@ let   lastFullResponse = '';
 let currentResultSession = null;
 
 function showResultPanel(fullText, sessionRef) {
+  const prev = currentResultSession;
   currentResultSession = sessionRef !== undefined ? sessionRef : curSession;
+  // Dim whatever was previously highlighted (if it's archived)
+  if (prev && prev !== currentResultSession && archivedSessions.includes(prev))
+    setSessionBrightness(prev, _dimFactor(prev));
+  // Brighten the newly referenced session if it's archived
+  if (currentResultSession && archivedSessions.includes(currentResultSession))
+    setSessionBrightness(currentResultSession, 1.0, 500);
   resultText.textContent = fullText || document.getElementById('text-aggregator').textContent;
   const secs = ((Date.now() - promptStartTime) / 1000).toFixed(1);
   resultMeta.textContent = `${secs}s`;
