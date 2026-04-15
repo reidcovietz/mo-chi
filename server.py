@@ -567,6 +567,7 @@ async def memory_retrieve(prompt: str) -> str:
         hits = results.get("results", [])
         if not hits:
             return ""
+        _log_brain("memory", "palace", f"{len(hits)} past exchange{'s' if len(hits)!=1 else ''} recalled")
         lines = ["RELEVANT PAST EXCHANGES (from memory):"]
         for i, h in enumerate(hits, 1):
             lines.append(f"[{i}] {h['text']}")
