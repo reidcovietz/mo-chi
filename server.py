@@ -1125,6 +1125,7 @@ async def websocket_endpoint(ws: WebSocket):
                 if intent != "casual":
                     asyncio.create_task(memory_store(prompt, final_text))
                     asyncio.create_task(reflect_and_evolve(prompt, final_text))
+                    asyncio.create_task(reflect_on_response(prompt, final_text))
                 continue
 
             if msg.get("type") != "prompt":
