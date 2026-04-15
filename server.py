@@ -771,6 +771,60 @@ async def emit(ws: WebSocket, event: str, **kwargs):
     await ws.send_text(json.dumps({"event": event, **kwargs}))
 
 
+# ── PA Director ────────────────────────────────────────────────────────────────
+async def run_pa_director(ws: WebSocket, prompt: str, intent: str) -> dict:
+    """Director briefs each agent on their specific angle before Layer 1 fires.
+    Returns per-agent directives + aggregator format hint.
+    Agents marked 'skip' are excluded from Layer 1 entirely."""
+    director_prompt = (
+        "You are the director of a 7-agent neural network. A human sent a message.\n\n"
+        f"Intent: {intent}\n"
+        f"Message: {prompt}\n\n"
+        "Brief each agent in 1-2 sentences specific to this exact message.\n"
+        "If an agent's lens adds nothing for this prompt, write exactly: skip\n\n"
+        "Also write an aggregator_note — a short tone/format instruction for the final synthesis.\n"
+        "Examples: 'conversational, 2-3 sentences' | 'structured, cover tradeoffs' | 'direct answer then brief context'\n\n"
+        "Respond in valid JSON only — no markdown, no explanation:\n"
+        "{\n"
+        '  "analytical": "brief or skip",\n'
+        '  "creative": "brief or skip",\n'
+        '  "critic": "brief or skip",\n'
+        '  "visionary": "brief or skip",\n'
+        '  "contrarian": "brief or skip",\n'
+        '  "reasoning": "brief or skip",\n'
+        '  "pragmatist": "brief or skip",\n'
+        '  "aggregator_note": "hint"\n'
+        "}"
+    )
+
+    await emit(ws, "agent_start", agent="director",
+               node_ids=list(range(162)), layer=0, sub_layer=-1)
+    directives: dict = {}
+    try:
+        result = await asyncio.wait_for(
+            CLIENTS["groq"].chat.completions.create(
+                model="llama-3.1-8b-instant",
+                max_tokens=400,
+                messages=[{"role": "user", "content": director_prompt}],
+                stream=False,
+            ),
+            timeout=8.0,
+        )
+        text = result.choices[0].message.content or "{}"
+        json_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if json_match:
+            directives = json.loads(json_match.group())
+        skipped = [k for k, v in directives.items()
+                   if isinstance(v, str) and v.strip().lower() == "skip"]
+        active  = [k for k in [a["name"] for a in LAYER1_AGENTS]
+                   if k not in skipped]
+        print(f"[director] active={active}  skipped={skipped}")
+    except Exception as e:
+        print(f"[director] error (falling back): {e}")
+    await emit(ws, "agent_complete", agent="director", layer=0)
+    return directives
+
+
 # ── Intent classifier ──────────────────────────────────────────────────────────
 async def classify_intent(prompt: str, history: list[dict]) -> str:
     """Classify prompt into one of three intents:
