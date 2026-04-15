@@ -1187,34 +1187,28 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
     )
     enriched = "\n\n".join(parts)
 
-    # ── PA Director: brief each agent, decide skips ───────────────────────────
-    directives = await run_pa_director(ws, prompt, intent if 'intent' in dir() else "direct")
+    # ── PA Director: brief every agent with a specific angle ──────────────────
+    directives = await run_pa_director(ws, prompt, intent)
     aggregator_note = directives.get("aggregator_note", "")
 
-    # ── Layer 1: proposers ─────────────────────────────────────────────────────
-    active_agents = [
-        a for a in LAYER1_AGENTS
-        if str(directives.get(a["name"], "")).strip().lower() != "skip"
-    ]
+    # ── Layer 1: all 7 proposers always run ────────────────────────────────────
     await emit(ws, "layer_start", layer=1,
-               agents=[a["name"] for a in active_agents])
+               agents=[a["name"] for a in LAYER1_AGENTS])
 
     tasks = []
-    active_list = []
-    for i, agent in enumerate(active_agents):
+    for i, agent in enumerate(LAYER1_AGENTS):
         brief = directives.get(agent["name"], "")
-        if brief and brief.strip().lower() not in ("skip", ""):
+        if brief:
             agent_prompt = f"DIRECTOR BRIEF: {brief}\n\n{enriched}"
         else:
             agent_prompt = enriched
         tasks.append(asyncio.create_task(run_proposer(ws, agent, agent_prompt)))
-        active_list.append(agent)
-        if i < len(active_agents) - 1:
+        if i < len(LAYER1_AGENTS) - 1:
             await asyncio.sleep(0.25)
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     layer1_outputs = {}
-    for agent, result in zip(active_list, results):
+    for agent, result in zip(LAYER1_AGENTS, results):
         if isinstance(result, Exception):
             await emit(ws, "error", message=str(result))
             layer1_outputs[agent["name"]] = "[unavailable]"
