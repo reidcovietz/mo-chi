@@ -145,9 +145,13 @@ def _build_consciousness(prompt: str = "") -> str:
     """Assemble the complete consciousness block from all palace files.
     This is mo-chi's brain — soul, character, memory, embarrassments, discoveries.
     Injected universally into every model call. Nothing is optional."""
+    _log_brain("read", "soul.md + context.md")
     soul, context     = _load_identity()
+    _log_brain("read", "humans.md + research.md")
     observations, research = _load_human_study()
+    _log_brain("read", "embarrassments.md")
     embarrassments    = _load_embarrassments()
+    _log_brain("read", "discoveries.md")
     discoveries       = _load_discoveries()
 
     parts = []
