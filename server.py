@@ -536,10 +536,12 @@ async def evolve_from_embarrassments():
         if soul_m:
             with open(_SOUL_PATH, "w") as f:
                 f.write(soul_m.group(1).strip() + "\n")
+            _log_brain("evolve", "soul.md", "embarrassment patterns")
             print("[embarrassment] soul evolved from lessons")
         if ctx_m:
             with open(_CONTEXT_PATH, "w") as f:
                 f.write(ctx_m.group(1).strip() + "\n")
+            _log_brain("evolve", "context.md", "embarrassment patterns")
             print("[embarrassment] context evolved from lessons")
     except Exception as e:
         print(f"[embarrassment] evolve error: {e}")
