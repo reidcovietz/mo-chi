@@ -347,6 +347,9 @@ async def assess_curiosity(prompt: str, response: str) -> list[str]:
 
 async def autonomous_research(topic: str, depth: int = 0, source: str = "conversation"):
     """Mo-chi independently researches a topic, stores findings, and may follow the thread further."""
+    global _curiosity_semaphore
+    if _curiosity_semaphore is None:
+        _curiosity_semaphore = asyncio.Semaphore(2)
     if depth > 3:
         print(f"[curiosity] max depth reached for: {topic!r}")
         return
