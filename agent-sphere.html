@@ -1073,13 +1073,12 @@ function addChainExchange(promptText, responseText) {
     _fadeIn(chainLineMat, 0.28, 950);
   }
 
-  // Sphere surface → first node connector (once per session)
+  // Root connector: from the actual sphere node → first prompt node
   if (idx === 0) {
-    const surfacePoint = dir.clone().multiplyScalar(SPHERE_R);
     const connMat = new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0 });
     connMat._baseOp = 0.36;
     curSession.connLine = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([surfacePoint, pPos]), connMat);
+      new THREE.BufferGeometry().setFromPoints([curSession.anchorPos, pPos]), connMat);
     scene.add(curSession.connLine);
     _fadeIn(connMat, 0.36, 1100);
   }
