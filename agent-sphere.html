@@ -1177,7 +1177,7 @@ function connectWS() {
         beginFade();
         computeNNReadout();
         addChainExchange(lastPrompt, msg.full_text);
-        setTimeout(() => showResultPanel(msg.full_text), 600);
+        setTimeout(() => showResultPanel(msg.full_text, curSession), 600);
         break;
 
       case 'error':
