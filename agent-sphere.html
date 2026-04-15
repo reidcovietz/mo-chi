@@ -1301,6 +1301,10 @@ function connectWS() {
         setTimeout(() => showResultPanel(msg.full_text, curSession), 600);
         break;
 
+      case 'brain_debug':
+        _brainLog(msg.action, msg.file, msg.detail);
+        break;
+
       case 'error':
         showStatus('error · ' + msg.message);
         document.getElementById('send-btn').disabled = false;
