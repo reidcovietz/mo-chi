@@ -28,24 +28,25 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 
 /* ── Brain debug (top-left internal log) ── */
 #brain-debug {
-  position:fixed; top:18px; left:22px;
-  width:220px; pointer-events:none; z-index:10;
-  display:flex; flex-direction:column; gap:2px;
+  position:fixed; top:20px; left:22px;
+  width:160px; pointer-events:none; z-index:10;
+  display:flex; flex-direction:column; gap:1px;
 }
 .brain-evt {
-  font-size:7.5px; font-family:'Courier New',monospace;
-  letter-spacing:0.4px; line-height:1.4;
-  padding:1px 0; opacity:0;
-  animation: brain-fade-in 0.2s forwards;
+  font-size:6.5px; font-family:'Courier New',monospace;
+  letter-spacing:0.3px; line-height:1.3;
+  opacity:0; animation:brain-in 0.1s forwards;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:opacity 0.4s;
 }
-@keyframes brain-fade-in { to { opacity:1; } }
-.brain-evt.t-read    { color:rgba(100,160,255,0.45); }
-.brain-evt.t-write   { color:rgba(255,175,60,0.55);  }
-.brain-evt.t-evolve  { color:rgba(190,100,255,0.55); }
-.brain-evt.t-web     { color:rgba(80,220,130,0.50);  }
-.brain-evt.t-curious { color:rgba(80,210,240,0.50);  }
-.brain-evt.t-memory  { color:rgba(200,200,200,0.30); }
+@keyframes brain-in { to { opacity:1; } }
+.brain-evt.t-read    { color:rgba(100,160,255,0.38); }
+.brain-evt.t-write   { color:rgba(255,175,60,0.48);  }
+.brain-evt.t-evolve  { color:rgba(190,100,255,0.48); }
+.brain-evt.t-web     { color:rgba(80,220,130,0.44);  }
+.brain-evt.t-curious { color:rgba(80,210,240,0.44);  }
+.brain-evt.t-memory  { color:rgba(200,200,200,0.26); }
+.brain-evt.t-filter  { color:rgba(200,200,100,0.38); }
 
 /* ── Proposer cards (left) ── */
 #proposers {
