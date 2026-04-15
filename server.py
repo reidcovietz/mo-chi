@@ -208,6 +208,17 @@ async def study_and_record(prompt: str, response: str):
     except Exception as e:
         print(f"[study] error: {e}")
 
+    # ── Curiosity — assess whether this exchange sparked autonomous research ────
+    try:
+        topics = await assess_curiosity(prompt, response)
+        for topic in topics:
+            asyncio.create_task(
+                autonomous_research(topic, depth=0,
+                                    source=f"conversation: {prompt[:80]}")
+            )
+    except Exception as e:
+        print(f"[curiosity] trigger error: {e}")
+
 
 # ── Curiosity engine ───────────────────────────────────────────────────────────
 _curiosity_semaphore = asyncio.Semaphore(2)   # max 2 parallel autonomous research threads
