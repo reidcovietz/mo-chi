@@ -1043,13 +1043,7 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
 
     await emit(ws, "agent_complete", agent="aggregator", layer=2)
 
-    # Strip FOLLOWUP: from displayed text — send it separately
-    full = "".join(full_text)
-    follow_up = ""
-    if "\nFOLLOWUP:" in full:
-        parts = full.rsplit("\nFOLLOWUP:", 1)
-        full = parts[0].strip()
-        follow_up = parts[1].strip()
+    full = "".join(full_text).strip()
 
     # ── Second pass: editorial filter ─────────────────────────────────────────
     try:
@@ -1057,7 +1051,7 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
     except (asyncio.TimeoutError, Exception):
         pass  # filter failure is non-fatal — return raw aggregator output
 
-    return full, follow_up
+    return full
 
 
 async def run_filter(text: str) -> str:
