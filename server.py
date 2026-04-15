@@ -679,6 +679,9 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
     identity_block = f"YOUR IDENTITY:\n{soul}"
     if ctx:
         identity_block += f"\n\nYOUR CONTEXT:\n{ctx}"
+    human_block = _human_study_block()
+    if human_block:
+        identity_block += f"\n\n{human_block}"
     identity_block += "\n\n---"
 
     history_block = _format_history(history)
