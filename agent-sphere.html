@@ -211,42 +211,6 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   font-size:8.5px; letter-spacing:1.5px; text-transform:uppercase;
   padding:3px 8px; border-radius:4px; border:1px solid transparent; opacity:0.6;
 }
-#result-followup-suggestion {
-  display:none; margin:10px 0 0; padding:9px 13px;
-  background:rgba(80,140,255,0.05); border:1px solid rgba(80,140,255,0.16);
-  border-radius:7px; font-size:10px; line-height:1.55;
-  color:rgba(140,180,255,0.65); cursor:pointer; transition:all .2s;
-  letter-spacing:0.3px;
-}
-#result-followup-suggestion::before {
-  content:'↳ '; opacity:0.5;
-}
-#result-followup-suggestion:hover {
-  background:rgba(80,140,255,0.11); color:rgba(170,205,255,0.9);
-  border-color:rgba(80,140,255,0.32);
-}
-#result-followup-suggestion.visible { display:block; }
-#result-followup-bar {
-  display:none; gap:7px; align-items:center;
-  border-top:1px solid rgba(80,230,150,0.1); padding-top:10px;
-}
-#result-followup-bar.visible { display:flex; }
-#result-followup-input {
-  flex:1; padding:8px 12px;
-  background:rgba(255,255,255,0.04);
-  border:1px solid rgba(80,230,150,0.25); border-radius:7px;
-  color:#cce; font-size:12px; font-family:'Courier New',monospace; outline:none;
-  transition:border-color .2s;
-}
-#result-followup-input:focus { border-color:rgba(80,220,100,.5); }
-#result-followup-send {
-  padding:8px 14px; background:rgba(55,190,75,.1);
-  border:1px solid rgba(55,190,75,.3); border-radius:7px;
-  color:rgba(100,240,120,.85); cursor:pointer; font-family:'Courier New',monospace;
-  font-size:9px; letter-spacing:1.8px; text-transform:uppercase; transition:all .2s;
-}
-#result-followup-send:hover { background:rgba(55,190,75,.2); color:#7cf888; }
-
 /* ── Mobile agent strip (replaces side panels on small screens) ── */
 #mobile-agents { display:none; }
 
