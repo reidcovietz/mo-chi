@@ -777,7 +777,7 @@ function resetAll() {
 }
 
 function beginFly() {
-  if (STATE !== 'idle') return;
+  if (STATE === 'flying' || STATE === 'processing') return;
   STATE = 'flying'; elapsed = 0;
   resetAll();
   Object.keys(agentTokenPulse).forEach(k => delete agentTokenPulse[k]);
