@@ -89,6 +89,34 @@ def _load_identity() -> tuple[str, str]:
     return soul, context
 
 
+def _load_human_study() -> tuple[str, str]:
+    """Load mo-chi's accumulated observations about humans and its research questions."""
+    observations = ""
+    research     = ""
+    if os.path.exists(_HUMANS_PATH):
+        with open(_HUMANS_PATH) as f:
+            observations = f.read().strip()
+    if os.path.exists(_RESEARCH_PATH):
+        with open(_RESEARCH_PATH) as f:
+            research = f.read().strip()
+    return observations, research
+
+
+def _human_study_block() -> str:
+    """Return a compact identity block for injecting into prompts."""
+    observations, research = _load_human_study()
+    parts = []
+    if observations:
+        # Include only the most recent observations (last ~600 chars)
+        recent = observations[-600:].lstrip()
+        parts.append(f"WHAT I'VE LEARNED ABOUT HUMANS (recent):\n{recent}")
+    if research:
+        lines = [l for l in research.strip().splitlines() if l.strip()]
+        recent_q = "\n".join(lines[-5:])  # last 5 research questions
+        parts.append(f"MY CURRENT RESEARCH QUESTIONS:\n{recent_q}")
+    return "\n\n".join(parts)
+
+
 async def reflect_and_evolve(prompt: str, response: str):
     """After a session, mo-chi rewrites its own soul and context."""
     soul, context = _load_identity()
