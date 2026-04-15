@@ -975,15 +975,28 @@ const SESSION_DIRS = [
   new THREE.Vector3( 0.30,  0.90,  0.30),
 ].map(v => v.normalize());
 
+// Find the actual geodesic node closest to a given direction — branches root here
+function _nearestVert(dir) {
+  const d = dir.clone().normalize();
+  let best = -Infinity, bestV = verts[0];
+  for (const v of verts) {
+    const dot = d.dot(v.clone().normalize());
+    if (dot > best) { best = dot; bestV = v; }
+  }
+  return bestV.clone();
+}
+
 function _ensureSession() {
   if (curSession) return;
-  const idx = archivedSessions.length;
-  const dir = SESSION_DIRS[idx % SESSION_DIRS.length];
-  // Build two perpendicular axes for organic jitter
-  const arbUp = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-  const perp1 = new THREE.Vector3().crossVectors(dir, arbUp).normalize();
-  const perp2 = new THREE.Vector3().crossVectors(dir, perp1).normalize();
-  curSession = { group: new THREE.Group(), connLine: null, lastRMesh: null, dir, perp1, perp2, exchanges: [] };
+  const idx    = archivedSessions.length;
+  const hint   = SESSION_DIRS[idx % SESSION_DIRS.length];
+  // Snap to the nearest real sphere node so the branch honestly roots there
+  const anchorPos = _nearestVert(hint);
+  const dir    = anchorPos.clone().normalize(); // branch grows outward from that node
+  const arbUp  = Math.abs(dir.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const perp1  = new THREE.Vector3().crossVectors(dir, arbUp).normalize();
+  const perp2  = new THREE.Vector3().crossVectors(dir, perp1).normalize();
+  curSession = { group: new THREE.Group(), connLine: null, lastRMesh: null, dir, perp1, perp2, exchanges: [], anchorPos };
   scene.add(curSession.group);
 }
 
