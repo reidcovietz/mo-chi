@@ -1193,7 +1193,10 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
 
     # ── PA Director: brief every agent with a specific angle ──────────────────
     directives = await run_pa_director(ws, prompt, intent)
-    aggregator_note = directives.get("aggregator_note", "")
+    aggregator_note  = directives.get("aggregator_note", "")
+    response_mode    = directives.get("response_mode", "full")
+    quick            = response_mode == "quick"
+    print(f"[director] response_mode={response_mode}")
 
     # ── Layer 1: all 7 proposers always run ────────────────────────────────────
     await emit(ws, "layer_start", layer=1,
@@ -1206,6 +1209,9 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
             agent_prompt = f"DIRECTOR BRIEF: {brief}\n\n{enriched}"
         else:
             agent_prompt = enriched
+        # Quick mode: shrink token budget so fast models don't ramble
+        if quick:
+            agent = {**agent, "max_tokens": min(agent["max_tokens"], 120)}
         tasks.append(asyncio.create_task(run_proposer(ws, agent, agent_prompt)))
         if i < len(LAYER1_AGENTS) - 1:
             await asyncio.sleep(0.25)
