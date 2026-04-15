@@ -1114,7 +1114,9 @@ function setSessionBrightness(session, factor, ms = 700) {
 
 function archiveSession() {
   if (curSession && curSession.exchanges.length > 0) {
-    archivedSessions.push(curSession);
+    const s = curSession;
+    archivedSessions.push(s);
+    setSessionBrightness(s, _dimFactor(s), 900);
   }
   curSession = null;
   // Tell server to reset session history — new session starts fresh
