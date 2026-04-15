@@ -971,7 +971,7 @@ function computeNNReadout() {
     panel.insertBefore(row, eqEl);
   });
 
-  eqEl.textContent = `y = σ(Σ wᵢaᵢ + b) = ${y.toFixed(4)}`;
+  eqEl.textContent = `${activeCount}/${agents.length} agents · ${totalTokens} tokens · ${utilization}% network`;
   panel.classList.add('visible');
 }
 
