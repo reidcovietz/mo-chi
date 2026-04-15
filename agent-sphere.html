@@ -1002,13 +1002,15 @@ function addChainExchange(promptText, responseText) {
   // Prompt node — blue-white, varied size
   const pRadius = 0.048 + Math.random() * 0.044;
   const pGeo    = new THREE.SphereGeometry(pRadius, 7 + Math.floor(Math.random() * 5), 7);
+  const pEI     = 0.40 + Math.random() * 0.40;
   const pMat    = new THREE.MeshStandardMaterial({
     color:    new THREE.Color(0.08, 0.14, 0.32),
     emissive: new THREE.Color(0.36 + Math.random() * 0.20, 0.50 + Math.random() * 0.18, 1.0),
-    emissiveIntensity: 0.40 + Math.random() * 0.40,
+    emissiveIntensity: pEI,
     roughness: 0.20 + Math.random() * 0.24, metalness: 0.50 + Math.random() * 0.24,
     transparent: true, opacity: 0,
   });
+  pMat._baseEI = pEI; pMat._baseOp = 1.0;
   const pMesh = new THREE.Mesh(pGeo, pMat);
   pMesh.position.copy(pPos);
   group.add(pMesh);
@@ -1016,47 +1018,52 @@ function addChainExchange(promptText, responseText) {
   // Response node — green, varied size
   const rRadius = 0.072 + Math.random() * 0.055;
   const rGeo    = new THREE.SphereGeometry(rRadius, 8 + Math.floor(Math.random() * 5), 8);
+  const rEI     = 0.55 + Math.random() * 0.45;
   const rMat    = new THREE.MeshStandardMaterial({
     color:    new THREE.Color(0.04, 0.20, 0.11),
     emissive: AGENT_COLOR.aggregator.clone(),
-    emissiveIntensity: 0.55 + Math.random() * 0.45,
+    emissiveIntensity: rEI,
     roughness: 0.18 + Math.random() * 0.22, metalness: 0.58 + Math.random() * 0.22,
     transparent: true, opacity: 0,
   });
+  rMat._baseEI = rEI; rMat._baseOp = 1.0;
   const rMesh = new THREE.Mesh(rGeo, rMat);
   rMesh.position.copy(rPos);
   group.add(rMesh);
   allResponseMeshes.push({ mesh: rMesh, fullText: responseText, session: curSession });
 
   // Inner connector (prompt → response)
-  const innerLine = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([pPos, rPos]),
-    new THREE.LineBasicMaterial({ color: 0x2a4880, transparent: true, opacity: 0 }));
+  const innerLineMat = new THREE.LineBasicMaterial({ color: 0x2a4880, transparent: true, opacity: 0 });
+  innerLineMat._baseOp = 0.52;
+  const innerLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pPos, rPos]), innerLineMat);
   group.add(innerLine);
 
   // Chain connector (previous response → this prompt)
   if (curSession.lastRMesh) {
+    const chainLineMat = new THREE.LineBasicMaterial({ color: 0x152030, transparent: true, opacity: 0 });
+    chainLineMat._baseOp = 0.28;
     const chainLine = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([curSession.lastRMesh.position.clone(), pPos]),
-      new THREE.LineBasicMaterial({ color: 0x152030, transparent: true, opacity: 0 }));
+      chainLineMat);
     group.add(chainLine);
-    _fadeIn(chainLine.material, 0.28, 950);
+    _fadeIn(chainLineMat, 0.28, 950);
   }
 
   // Sphere surface → first node connector (once per session)
   if (idx === 0) {
     const surfacePoint = dir.clone().multiplyScalar(SPHERE_R);
+    const connMat = new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0 });
+    connMat._baseOp = 0.36;
     curSession.connLine = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([surfacePoint, pPos]),
-      new THREE.LineBasicMaterial({ color: 0x2a4060, transparent: true, opacity: 0 }));
+      new THREE.BufferGeometry().setFromPoints([surfacePoint, pPos]), connMat);
     scene.add(curSession.connLine);
-    _fadeIn(curSession.connLine.material, 0.36, 1100);
+    _fadeIn(connMat, 0.36, 1100);
   }
 
   curSession.lastRMesh = rMesh;
   _fadeIn(pMat, 1.0, 700);
   _fadeIn(rMat, 1.0, 700);
-  _fadeIn(innerLine.material, 0.52, 750);
+  _fadeIn(innerLineMat, 0.52, 750);
 }
 
 function _fadeIn(mat, targetOpacity, durationMs) {
