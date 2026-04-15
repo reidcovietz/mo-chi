@@ -785,8 +785,12 @@ async def run_pa_director(ws: WebSocket, prompt: str, intent: str) -> dict:
         "Write 1-2 sentences per agent — tell them exactly what to focus on for this prompt.\n"
         "Also write an aggregator_note: a short tone/format instruction for the final synthesis.\n"
         "Examples: 'conversational, 2-3 sentences' | 'structured, cover tradeoffs' | 'direct answer then brief context'\n\n"
+        "Also set response_mode:\n"
+        "  quick — short factual or simple question, agents need only 1-3 sentences each\n"
+        "  full  — complex, nuanced, or multi-part question needing deep analysis\n\n"
         "Respond in valid JSON only — no markdown, no explanation:\n"
         "{\n"
+        '  "response_mode": "quick or full",\n'
         '  "analytical": "specific focus for this prompt",\n'
         '  "creative": "specific focus for this prompt",\n'
         '  "critic": "specific focus for this prompt",\n'
