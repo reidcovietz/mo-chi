@@ -764,13 +764,15 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
     await emit(ws, "layer_start", layer=2, agents=["aggregator"])
 
     try:
-        final_text = await run_aggregator(ws, layer1_outputs, prompt, history)
+        final_text, follow_up = await run_aggregator(
+            ws, layer1_outputs, prompt, history, raw_results=raw_results
+        )
     except Exception as e:
         await emit(ws, "error", message=str(e))
-        return ""
+        return "", ""
 
     await emit(ws, "layer_done", layer=2)
-    return final_text
+    return final_text, follow_up
 
 
 # ── WebSocket endpoint ─────────────────────────────────────────────────────────
