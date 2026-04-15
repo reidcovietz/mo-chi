@@ -1260,6 +1260,11 @@ function connectWS() {
         beginFade();
         computeNNReadout();
         addChainExchange(lastPrompt, msg.full_text);
+        if (msg.follow_up) {
+          const sug = document.getElementById('result-followup-suggestion');
+          sug.textContent = msg.follow_up;
+          sug.classList.add('visible');
+        }
         setTimeout(() => showResultPanel(msg.full_text, curSession), 600);
         break;
 
