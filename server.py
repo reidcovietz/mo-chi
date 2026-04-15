@@ -629,6 +629,7 @@ CLIENTS = {
 
 # ── Agent definitions ──────────────────────────────────────────────────────────
 LAYER1_AGENTS = [
+    # ── analytical — groq llama fast ───────────────────────────────────────────
     {
         "name":      "analytical",
         "sub_layer": 1,
@@ -644,6 +645,7 @@ LAYER1_AGENTS = [
             "Be substantive but tight — no filler."
         ),
     },
+    # ── creative — groq gemma (different architecture = real diversity) ─────────
     {
         "name":      "creative",
         "sub_layer": 2,
@@ -659,6 +661,7 @@ LAYER1_AGENTS = [
             "Avoid vague speculation — lateral thinking that cites something concrete is more valuable."
         ),
     },
+    # ── critic — groq gemma ────────────────────────────────────────────────────
     {
         "name":      "critic",
         "sub_layer": 3,
@@ -674,12 +677,14 @@ LAYER1_AGENTS = [
             "Flag if the prompt itself contains a false premise or loaded assumption."
         ),
     },
+    # ── visionary — gemini flash (different model family = genuine diversity) ───
+    # Previously: openrouter/mistral-7b-instruct:free — was hanging constantly
     {
         "name":      "visionary",
         "sub_layer": 4,
         "nodes":     list(range(70, 79)),
-        "provider":  "openrouter",
-        "model":     "mistralai/mistral-7b-instruct:free",
+        "provider":  "gemini",
+        "model":     "gemini-1.5-flash",
         "max_tokens": 350,
         "system": (
             "You are a long-horizon reasoning agent in a multi-agent network. "
@@ -689,12 +694,13 @@ LAYER1_AGENTS = [
             "Avoid utopian or dystopian extremes unless the evidence genuinely supports them."
         ),
     },
+    # ── contrarian — groq llama (replaced deprecated llama3-8b-8192) ───────────
     {
         "name":      "contrarian",
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
         "provider":  "groq",
-        "model":     "llama3-8b-8192",
+        "model":     "llama-3.1-8b-instant",
         "max_tokens": 350,
         "system": (
             "You are a contrarian agent in a multi-agent network. "
@@ -704,6 +710,7 @@ LAYER1_AGENTS = [
             "If the contrarian position has no merit, say so directly instead of arguing it anyway."
         ),
     },
+    # ── reasoning — groq llama ─────────────────────────────────────────────────
     {
         "name":      "reasoning",
         "sub_layer": 6,
@@ -719,6 +726,7 @@ LAYER1_AGENTS = [
             "If there are multiple valid logical paths to different conclusions, name them."
         ),
     },
+    # ── pragmatist — groq gemma ────────────────────────────────────────────────
     {
         "name":      "pragmatist",
         "sub_layer": 7,
