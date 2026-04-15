@@ -283,8 +283,8 @@ async def study_and_record(prompt: str, response: str):
     except Exception as e:
         print(f"[study] error: {e}")
 
-    # ── Curiosity — fully fire-and-forget so it never blocks follow-ups ────────
-    asyncio.create_task(_trigger_curiosity(prompt, response))
+    # ── Curiosity disabled — was causing event loop starvation on follow-ups ───
+    # asyncio.create_task(_trigger_curiosity(prompt, response))
 
 
 async def _trigger_curiosity(prompt: str, response: str):
