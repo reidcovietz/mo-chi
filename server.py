@@ -32,6 +32,36 @@ from fastapi.responses import HTMLResponse
 from openai import AsyncOpenAI
 from ddgs import DDGS
 
+# ── Brain debug event bus ──────────────────────────────────────────────────────
+# Background tasks push here; active WS connections drain and stream to frontend.
+_brain_subscribers: list[asyncio.Queue] = []
+
+def _log_brain(action: str, file: str, detail: str = ""):
+    """Log a brain file access/write event to all connected clients."""
+    entry = {"action": action, "file": file, "detail": detail}
+    for q in _brain_subscribers:
+        try:
+            q.put_nowait(entry)
+        except Exception:
+            pass
+
+async def _stream_brain_log(ws: WebSocket):
+    """Per-connection drain loop — forwards brain events to the client."""
+    q: asyncio.Queue = asyncio.Queue(maxsize=120)
+    _brain_subscribers.append(q)
+    try:
+        while True:
+            try:
+                event = await asyncio.wait_for(q.get(), timeout=1.0)
+                await ws.send_text(json.dumps({"event": "brain_debug", **event}))
+            except asyncio.TimeoutError:
+                continue
+            except Exception:
+                break
+    finally:
+        if q in _brain_subscribers:
+            _brain_subscribers.remove(q)
+
 load_dotenv()
 
 app = FastAPI(title="mo-chi")
