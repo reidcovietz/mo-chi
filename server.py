@@ -1197,9 +1197,8 @@ async def websocket_endpoint(ws: WebSocket):
             # ── Route ──────────────────────────────────────────────────────────
             if intent == "casual":
                 final_text = await run_casual(ws, prompt, session_history)
-                follow_up = ""
             else:
-                final_text, follow_up = await run_moa(
+                final_text = await run_moa(
                     ws, prompt, session_history,
                     do_search=(intent == "search")
                 )
@@ -1207,7 +1206,7 @@ async def websocket_endpoint(ws: WebSocket):
             if not final_text:
                 continue
 
-            await emit(ws, "agent_done", full_text=final_text, follow_up=follow_up)
+            await emit(ws, "agent_done", full_text=final_text)
 
             # ── Update session history ─────────────────────────────────────────
             session_history.append({"role": "user",      "content": prompt})
