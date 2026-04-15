@@ -390,6 +390,7 @@ async def autonomous_research(topic: str, depth: int = 0, source: str = "convers
             os.makedirs(_PALACE_PATH, exist_ok=True)
             with open(_DISCOVERIES_PATH, "a") as f:
                 f.write(entry + "\n")
+            _log_brain("write", "discoveries.md", topic[:60])
             print(f"[curiosity] stored: {topic!r} ({len(clean)} chars)")
 
             # Follow the thread if a new one opened (loop — depth-capped)
