@@ -773,26 +773,27 @@ async def emit(ws: WebSocket, event: str, **kwargs):
 
 # ── PA Director ────────────────────────────────────────────────────────────────
 async def run_pa_director(ws: WebSocket, prompt: str, intent: str) -> dict:
-    """Director briefs each agent on their specific angle before Layer 1 fires.
-    Returns per-agent directives + aggregator format hint.
-    Agents marked 'skip' are excluded from Layer 1 entirely."""
+    """PA Director: briefs every agent with a specific angle before Layer 1 fires.
+    All 7 agents always run — the director only sharpens their focus.
+    Returns per-agent briefs + aggregator format hint."""
     director_prompt = (
-        "You are the director of a 7-agent neural network. A human sent a message.\n\n"
+        "You are the director of mo-chi — a 7-agent neural network.\n\n"
         f"Intent: {intent}\n"
         f"Message: {prompt}\n\n"
-        "Brief each agent in 1-2 sentences specific to this exact message.\n"
-        "If an agent's lens adds nothing for this prompt, write exactly: skip\n\n"
-        "Also write an aggregator_note — a short tone/format instruction for the final synthesis.\n"
+        "Every agent will always run. Your job is to give each one a sharp, specific angle "
+        "tailored to THIS exact message so they produce focused, useful output instead of generic takes.\n\n"
+        "Write 1-2 sentences per agent — tell them exactly what to focus on for this prompt.\n"
+        "Also write an aggregator_note: a short tone/format instruction for the final synthesis.\n"
         "Examples: 'conversational, 2-3 sentences' | 'structured, cover tradeoffs' | 'direct answer then brief context'\n\n"
         "Respond in valid JSON only — no markdown, no explanation:\n"
         "{\n"
-        '  "analytical": "brief or skip",\n'
-        '  "creative": "brief or skip",\n'
-        '  "critic": "brief or skip",\n'
-        '  "visionary": "brief or skip",\n'
-        '  "contrarian": "brief or skip",\n'
-        '  "reasoning": "brief or skip",\n'
-        '  "pragmatist": "brief or skip",\n'
+        '  "analytical": "specific focus for this prompt",\n'
+        '  "creative": "specific focus for this prompt",\n'
+        '  "critic": "specific focus for this prompt",\n'
+        '  "visionary": "specific focus for this prompt",\n'
+        '  "contrarian": "specific focus for this prompt",\n'
+        '  "reasoning": "specific focus for this prompt",\n'
+        '  "pragmatist": "specific focus for this prompt",\n'
         '  "aggregator_note": "hint"\n'
         "}"
     )
@@ -814,13 +815,9 @@ async def run_pa_director(ws: WebSocket, prompt: str, intent: str) -> dict:
         json_match = re.search(r"\{.*\}", text, re.DOTALL)
         if json_match:
             directives = json.loads(json_match.group())
-        skipped = [k for k, v in directives.items()
-                   if isinstance(v, str) and v.strip().lower() == "skip"]
-        active  = [k for k in [a["name"] for a in LAYER1_AGENTS]
-                   if k not in skipped]
-        print(f"[director] active={active}  skipped={skipped}")
+        print(f"[director] briefs ready for: {list(directives.keys())}")
     except Exception as e:
-        print(f"[director] error (falling back): {e}")
+        print(f"[director] error (falling back to generic): {e}")
     await emit(ws, "agent_complete", agent="director", layer=0)
     return directives
 
