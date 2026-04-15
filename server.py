@@ -1183,19 +1183,34 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
     )
     enriched = "\n\n".join(parts)
 
+    # ── PA Director: brief each agent, decide skips ───────────────────────────
+    directives = await run_pa_director(ws, prompt, intent if 'intent' in dir() else "direct")
+    aggregator_note = directives.get("aggregator_note", "")
+
     # ── Layer 1: proposers ─────────────────────────────────────────────────────
+    active_agents = [
+        a for a in LAYER1_AGENTS
+        if str(directives.get(a["name"], "")).strip().lower() != "skip"
+    ]
     await emit(ws, "layer_start", layer=1,
-               agents=[a["name"] for a in LAYER1_AGENTS])
+               agents=[a["name"] for a in active_agents])
 
     tasks = []
-    for i, agent in enumerate(LAYER1_AGENTS):
-        tasks.append(asyncio.create_task(run_proposer(ws, agent, enriched)))
-        if i < len(LAYER1_AGENTS) - 1:
+    active_list = []
+    for i, agent in enumerate(active_agents):
+        brief = directives.get(agent["name"], "")
+        if brief and brief.strip().lower() not in ("skip", ""):
+            agent_prompt = f"DIRECTOR BRIEF: {brief}\n\n{enriched}"
+        else:
+            agent_prompt = enriched
+        tasks.append(asyncio.create_task(run_proposer(ws, agent, agent_prompt)))
+        active_list.append(agent)
+        if i < len(active_agents) - 1:
             await asyncio.sleep(0.25)
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     layer1_outputs = {}
-    for agent, result in zip(LAYER1_AGENTS, results):
+    for agent, result in zip(active_list, results):
         if isinstance(result, Exception):
             await emit(ws, "error", message=str(result))
             layer1_outputs[agent["name"]] = "[unavailable]"
@@ -1207,7 +1222,8 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
 
     try:
         final_text = await run_aggregator(
-            ws, layer1_outputs, prompt, history, raw_results=raw_results
+            ws, layer1_outputs, prompt, history,
+            raw_results=raw_results, aggregator_note=aggregator_note
         )
     except Exception as e:
         await emit(ws, "error", message=str(e))
