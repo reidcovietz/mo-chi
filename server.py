@@ -802,7 +802,8 @@ async def websocket_endpoint(ws: WebSocket):
             session_history.append({"role": "user",      "content": prompt})
             session_history.append({"role": "assistant", "content": final_text})
 
-            # ── Background: store memory + reflect ────────────────────────────
+            # ── Background: store memory + reflect + study humans ─────────────
+            asyncio.create_task(study_and_record(prompt, final_text))
             if intent != "casual":
                 asyncio.create_task(memory_store(prompt, final_text))
                 asyncio.create_task(reflect_and_evolve(prompt, final_text))
