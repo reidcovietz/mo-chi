@@ -1149,7 +1149,8 @@ def _format_history(history: list[dict]) -> str:
 
 
 # ── MoA orchestrator ───────────────────────────────────────────────────────────
-async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bool = True):
+async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
+                  do_search: bool = True, intent: str = "direct"):
     # ── Consciousness — universal, always full ──────────────────────────────────
     consciousness = _build_consciousness(prompt)
     history_block = _format_history(history)
