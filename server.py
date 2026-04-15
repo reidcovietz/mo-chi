@@ -976,15 +976,18 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
 # ── Agent runners ──────────────────────────────────────────────────────────────
 FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
 
+import time as _time
+
 async def _call_model(ws: WebSocket, agent: dict, prompt: str,
                       provider: str, model: str) -> str:
     client = CLIENTS[provider]
-    # Prepend soul to every proposer — they are nodes of mo-chi, not generic agents
     soul, _ = _load_identity()
     soul_lines = [l for l in soul.splitlines() if l.strip()]
-    soul_brief = " ".join(soul_lines[:3])  # first 3 lines — core identity only
+    soul_brief = " ".join(soul_lines[:3])
     system = f"[You are a specialist node in mo-chi's neural network. {soul_brief}]\n\n{agent['system']}"
     full_text = []
+    t0 = _time.monotonic()
+    first_token = False
     stream = await client.chat.completions.create(
         model=model,
         max_tokens=agent["max_tokens"],
@@ -997,13 +1000,23 @@ async def _call_model(ws: WebSocket, agent: dict, prompt: str,
     async for chunk in stream:
         text = chunk.choices[0].delta.content or ""
         if text:
+            if not first_token:
+                ttft = int((_time.monotonic() - t0) * 1000)
+                _log_brain("token", f"{agent['name']}", f"first token {ttft}ms ({provider}/{model})")
+                first_token = True
             full_text.append(text)
             await emit(ws, "token", text=text, agent=agent["name"], layer=1)
             await asyncio.sleep(0)
-    return "".join(full_text)
+    result = "".join(full_text)
+    elapsed = int((_time.monotonic() - t0) * 1000)
+    if not result:
+        _log_brain("warn", f"{agent['name']}", f"EMPTY response from {provider}/{model} ({elapsed}ms)")
+        print(f"[agent] {agent['name']} ⚠ empty response ({provider}/{model}, {elapsed}ms)")
+    return result
 
 
-AGENT_TIMEOUT = 60  # seconds — long enough for slow models, short enough to catch true hangs
+# 20s per attempt — enough for Gemini, kills true hangs before they ruin the UX
+AGENT_TIMEOUT = 20
 
 async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
     await emit(ws, "agent_start",
@@ -1012,36 +1025,52 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
                layer=1,
                sub_layer=agent.get("sub_layer", 1))
 
-    for attempt in range(3):
+    t_start = _time.monotonic()
+    # 2 attempts on primary, then immediate fallback — no more 3-minute hangs
+    for attempt in range(2):
         try:
             result = await asyncio.wait_for(
                 _call_model(ws, agent, prompt, agent["provider"], agent["model"]),
                 timeout=AGENT_TIMEOUT,
             )
-            await emit(ws, "agent_complete", agent=agent["name"], layer=1)
-            print(f"[agent] {agent['name']} ✓ ({agent['provider']}/{agent['model']})")
+            elapsed = int((_time.monotonic() - t_start) * 1000)
+            await emit(ws, "agent_complete", agent=agent["name"], layer=1,
+                       model=agent["model"], elapsed_ms=elapsed,
+                       tokens=len(result.split()))
+            print(f"[agent] {agent['name']} ✓  {elapsed}ms  ({agent['provider']}/{agent['model']})")
             return result
         except asyncio.TimeoutError:
-            print(f"[agent] {agent['name']} timeout on attempt {attempt+1}")
-            if attempt < 2:
-                await asyncio.sleep(1.0)
+            elapsed = int((_time.monotonic() - t_start) * 1000)
+            _log_brain("warn", agent["name"], f"timeout attempt {attempt+1} ({elapsed}ms) — {agent['provider']}/{agent['model']}")
+            print(f"[agent] {agent['name']} ✗ timeout attempt {attempt+1} ({elapsed}ms)")
+            if attempt < 1:
+                await asyncio.sleep(0.5)
         except Exception as e:
-            print(f"[agent] {agent['name']} error on attempt {attempt+1}: {e}")
-            if attempt < 2:
-                await asyncio.sleep(1.0)
+            elapsed = int((_time.monotonic() - t_start) * 1000)
+            _log_brain("warn", agent["name"], f"error attempt {attempt+1}: {str(e)[:80]}")
+            print(f"[agent] {agent['name']} ✗ error attempt {attempt+1} ({elapsed}ms): {e}")
+            if attempt < 1:
+                await asyncio.sleep(0.5)
 
-    # Primary exhausted — fallback to fast reliable Groq model
+    # Primary exhausted — immediate fallback to groq/llama-3.1-8b-instant
+    _log_brain("warn", agent["name"], f"falling back to {FALLBACK['provider']}/{FALLBACK['model']}")
     try:
         result = await asyncio.wait_for(
             _call_model(ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"]),
             timeout=AGENT_TIMEOUT,
         )
-        await emit(ws, "agent_complete", agent=agent["name"], layer=1)
-        print(f"[agent] {agent['name']} ✓ via fallback")
+        elapsed = int((_time.monotonic() - t_start) * 1000)
+        await emit(ws, "agent_complete", agent=agent["name"], layer=1,
+                   model=FALLBACK["model"], elapsed_ms=elapsed,
+                   tokens=len(result.split()), fallback=True)
+        print(f"[agent] {agent['name']} ✓ fallback  {elapsed}ms")
         return result
     except Exception as e:
-        await emit(ws, "agent_complete", agent=agent["name"], layer=1)
-        print(f"[agent] {agent['name']} ✗ failed completely")
+        elapsed = int((_time.monotonic() - t_start) * 1000)
+        _log_brain("warn", agent["name"], f"fallback also failed ({elapsed}ms): {str(e)[:80]}")
+        await emit(ws, "agent_complete", agent=agent["name"], layer=1,
+                   model="failed", elapsed_ms=elapsed, tokens=0)
+        print(f"[agent] {agent['name']} ✗ failed completely ({elapsed}ms)")
         raise Exception(f"{agent['name']} failed (primary + fallback): {e}") from e
 
 
