@@ -1044,7 +1044,10 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
         follow_up = parts[1].strip()
 
     # ── Second pass: editorial filter ─────────────────────────────────────────
-    full = await run_filter(full)
+    try:
+        full = await asyncio.wait_for(run_filter(full), timeout=12.0)
+    except (asyncio.TimeoutError, Exception):
+        pass  # filter failure is non-fatal — return raw aggregator output
 
     return full, follow_up
 
