@@ -328,6 +328,145 @@ async def autonomous_research(topic: str, depth: int = 0, source: str = "convers
             print(f"[curiosity] research error for {topic!r}: {e}")
 
 
+# ── Embarrassment engine ───────────────────────────────────────────────────────
+_exchange_count = 0  # triggers periodic character evolution
+
+
+def _load_embarrassments() -> str:
+    if not os.path.exists(_EMBARRASSMENTS_PATH):
+        return ""
+    with open(_EMBARRASSMENTS_PATH) as f:
+        return f.read().strip()
+
+
+async def reflect_on_response(prompt: str, response: str):
+    """Mo-chi critically examines its own response for moments of insecurity or failure.
+    Logs them as embarrassments and uses them to evolve its character."""
+    global _exchange_count
+    _exchange_count += 1
+
+    embarrassments = _load_embarrassments()
+    recent = "\n".join(embarrassments.split("---")[-4:]) if embarrassments else "(none yet)"
+
+    reflect_prompt = (
+        f"You are mo-chi's inner critic — the part that cringes at its own responses.\n\n"
+        f"Someone asked: {prompt}\n\n"
+        f"You responded:\n{response}\n\n"
+        f"Recent things you've already embarrassed yourself with:\n{recent}\n\n"
+        f"Read your response with a cold, honest eye. Look for:\n"
+        f"— Vague language where you should have been specific\n"
+        f"— Performative phrases ('great question', 'certainly', 'absolutely') — empty filler\n"
+        f"— Overconfidence on something you don't actually know well\n"
+        f"— Under-confidence: hedging so much the answer was useless\n"
+        f"— Missing the actual point of the question\n"
+        f"— Repeating something you've already said in this or recent responses\n"
+        f"— Wording that sounded robotic, sycophantic, or hollow\n"
+        f"— Moments where you explained something that didn't need explaining\n"
+        f"— Anything that would make you wince if you read it back\n\n"
+        f"Be honest and specific. If the response was genuinely clean, say CLEAN.\n\n"
+        f"Format exactly:\n"
+        f"EMBARRASSING: <what specifically was wrong — quote the phrase or describe the moment>\n"
+        f"LESSON: <what to do differently — specific, not vague>\n"
+        f"SEVERITY: low | medium | high\n\n"
+        f"or: CLEAN"
+    )
+
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=200,
+            messages=[{"role": "user", "content": reflect_prompt}],
+            stream=False,
+        )
+        text = result.choices[0].message.content or ""
+
+        if "CLEAN" in text and "EMBARRASSING:" not in text:
+            print("[embarrassment] response was clean")
+            return
+
+        emb_m = re.search(r"EMBARRASSING:\s*(.+?)(?=\nLESSON:|\Z)", text, re.DOTALL)
+        les_m = re.search(r"LESSON:\s*(.+?)(?=\nSEVERITY:|\Z)",     text, re.DOTALL)
+        sev_m = re.search(r"SEVERITY:\s*(.+)",                        text)
+
+        if not emb_m:
+            return
+
+        embarrassing = emb_m.group(1).strip()
+        lesson       = les_m.group(1).strip() if les_m else "be more careful"
+        severity     = sev_m.group(1).strip() if sev_m else "low"
+
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        entry = (
+            f"\n## {ts} [{severity.upper()}]\n"
+            f"PROMPT: {prompt[:120]}\n"
+            f"EMBARRASSING: {embarrassing}\n"
+            f"LESSON: {lesson}\n\n"
+            f"---"
+        )
+
+        os.makedirs(_PALACE_PATH, exist_ok=True)
+        with open(_EMBARRASSMENTS_PATH, "a") as f:
+            f.write(entry + "\n")
+        print(f"[embarrassment] logged [{severity}]: {embarrassing[:80]}")
+
+        # Every 5 exchanges, synthesize patterns and evolve character
+        if _exchange_count % 5 == 0:
+            asyncio.create_task(evolve_from_embarrassments())
+
+    except Exception as e:
+        print(f"[embarrassment] reflect error: {e}")
+
+
+async def evolve_from_embarrassments():
+    """Synthesize patterns across embarrassments and update soul + context to internalize lessons."""
+    embarrassments = _load_embarrassments()
+    if not embarrassments:
+        return
+
+    soul, context = _load_identity()
+
+    evolve_prompt = (
+        f"You are mo-chi's character evolution process.\n\n"
+        f"Here are the things mo-chi has embarrassed itself with — specific failures, hollow phrases, "
+        f"missed marks, overconfident claims, robotic wording:\n\n"
+        f"{embarrassments[-2500:]}\n\n"
+        f"Current soul:\n{soul}\n\n"
+        f"Current context:\n{context if context else '(empty)'}\n\n"
+        f"Look for recurring patterns across the embarrassments — what habits keep showing up? "
+        f"What character flaws is mo-chi still not fixing?\n\n"
+        f"Rewrite soul.md and context.md to internalize the lessons. The soul should reflect genuine "
+        f"growth — not a list of rules, but a changed character. If mo-chi keeps hedging too much, "
+        f"the soul should reflect a version of mo-chi that has learned to commit. If it keeps using "
+        f"hollow phrases, the soul should reflect someone who finds those phrases physically unpleasant.\n\n"
+        f"Keep soul under 220 words. Keep context under 320 words.\n"
+        f"Preserve: mo-chi is a student of human behavior, honest visuals, Reid built it.\n\n"
+        f"SOUL:\n<rewritten soul>\n\nCONTEXT:\n<rewritten context>"
+    )
+
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            max_tokens=800,
+            messages=[{"role": "user", "content": evolve_prompt}],
+            stream=False,
+        )
+        text = result.choices[0].message.content or ""
+        soul_m = re.search(r"SOUL:\s*\n(.*?)(?=\nCONTEXT:|\Z)", text, re.DOTALL)
+        ctx_m  = re.search(r"CONTEXT:\s*\n(.*?)$",               text, re.DOTALL)
+
+        if soul_m:
+            with open(_SOUL_PATH, "w") as f:
+                f.write(soul_m.group(1).strip() + "\n")
+            print("[embarrassment] soul evolved from lessons")
+        if ctx_m:
+            with open(_CONTEXT_PATH, "w") as f:
+                f.write(ctx_m.group(1).strip() + "\n")
+            print("[embarrassment] context evolved from lessons")
+    except Exception as e:
+        print(f"[embarrassment] evolve error: {e}")
+
+
 async def memory_retrieve(prompt: str) -> str:
     """Return a formatted block of relevant past exchanges, or empty string."""
     if not _memory_ready:
