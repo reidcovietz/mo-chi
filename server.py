@@ -267,6 +267,7 @@ async def study_and_record(prompt: str, response: str):
                 chunks = chunks[-80:]
             with open(_HUMANS_PATH, "w") as f:
                 f.write("\n\n".join(chunks) + "\n")
+            _log_brain("write", "humans.md", new_obs[:60])
             print(f"[humans] → {new_obs[:80]}")
 
         if res_m:
@@ -277,6 +278,7 @@ async def study_and_record(prompt: str, response: str):
                 lines = lines[-30:]
             with open(_RESEARCH_PATH, "w") as f:
                 f.write("\n".join(lines) + "\n")
+            _log_brain("write", "research.md", new_q[:60])
             print(f"[research] → {new_q[:80]}")
     except Exception as e:
         print(f"[study] error: {e}")
