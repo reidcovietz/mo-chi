@@ -661,9 +661,10 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
     agg_prompt = (
         f"{history_block}"
         f"Current question: {prompt}\n\n"
-        f"Seven specialist perspectives:\n\n{combined}"
+        f"Seven specialist perspectives (each includes a confidence rating):\n\n{combined}"
         f"{sources_block}\n\n"
-        f"Synthesize what matters — with specifics. Name sources, cite findings, surface disagreements. "
+        f"Evaluate each input by its confidence level and evidence quality before synthesizing. "
+        f"Weight stronger inputs more heavily. Flag any consensus that might reflect shared bias rather than evidence. "
         f"If this is a follow-up, acknowledge the thread. End with FOLLOWUP: as instructed."
     )
 
