@@ -1140,10 +1140,8 @@ async def websocket_endpoint(ws: WebSocket):
             print(f"[intent] {intent!r} — {prompt!r}")
 
             # ── Route ──────────────────────────────────────────────────────────
-            soul, ctx = _load_identity()
-
             if intent == "casual":
-                final_text = await run_casual(ws, prompt, session_history, soul, ctx)
+                final_text = await run_casual(ws, prompt, session_history)
                 follow_up = ""
             else:
                 final_text, follow_up = await run_moa(
