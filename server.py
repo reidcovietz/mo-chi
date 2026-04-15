@@ -287,6 +287,7 @@ async def study_and_record(prompt: str, response: str):
     try:
         topics = await assess_curiosity(prompt, response)
         for topic in topics:
+            _log_brain("curious", "web", topic[:60])
             asyncio.create_task(
                 autonomous_research(topic, depth=0,
                                     source=f"conversation: {prompt[:80]}")
