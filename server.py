@@ -874,6 +874,28 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
         )
     if memory_context:
         parts.append(memory_context)
+
+    # Inject discoveries — fully when asked about learning, as a brief note otherwise
+    discoveries = _load_discoveries()
+    if discoveries:
+        recall_keywords = (
+            "learned", "discover", "found out", "been researching",
+            "curious about", "what do you know", "what have you",
+            "been thinking about", "looked into"
+        )
+        if any(kw in prompt.lower() for kw in recall_keywords):
+            parts.append(
+                f"YOUR AUTONOMOUS DISCOVERIES (topics you researched independently, "
+                f"unprompted — share these when asked what you've learned):\n\n{discoveries[-3000:]}"
+            )
+        else:
+            # Always give light awareness of the most recent discovery
+            recent_entry = discoveries.split("---")[-2].strip() if "---" in discoveries else ""
+            if recent_entry:
+                parts.append(
+                    f"RECENT AUTONOMOUS RESEARCH (something you just looked into on your own):\n{recent_entry[:400]}"
+                )
+
     parts.append(
         f"---\nAnswer the following from your specialist perspective"
         f"{', using the live data above (cite sources where relevant)' if context else ''}:\n\n{prompt}"
