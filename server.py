@@ -109,13 +109,22 @@ def _human_study_block() -> str:
     observations, research = _load_human_study()
     parts = []
     if observations:
-        # Include only the most recent observations (last ~600 chars)
         recent = observations[-600:].lstrip()
         parts.append(f"WHAT I'VE LEARNED ABOUT HUMANS (recent):\n{recent}")
     if research:
         lines = [l for l in research.strip().splitlines() if l.strip()]
-        recent_q = "\n".join(lines[-5:])  # last 5 research questions
+        recent_q = "\n".join(lines[-5:])
         parts.append(f"MY CURRENT RESEARCH QUESTIONS:\n{recent_q}")
+
+    # Inject recent embarrassments so the model actively avoids repeating them
+    embarrassments = _load_embarrassments() if os.path.exists(_EMBARRASSMENTS_PATH) else ""
+    if embarrassments:
+        entries = [e.strip() for e in embarrassments.split("---") if e.strip()]
+        recent_emb = "\n---\n".join(entries[-6:])  # last 6 embarrassments
+        parts.append(
+            f"THINGS I'VE EMBARRASSED MYSELF WITH (do not repeat these):\n{recent_emb}"
+        )
+
     return "\n\n".join(parts)
 
 
