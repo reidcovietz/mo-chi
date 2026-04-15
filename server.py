@@ -664,6 +664,11 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             data = await ws.receive_text()
             msg = json.loads(data)
+            if msg.get("type") == "new_session":
+                session_history = []
+                print("[session] history cleared — new session started")
+                continue
+
             if msg.get("type") != "prompt":
                 continue
 
