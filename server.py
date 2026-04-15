@@ -1041,7 +1041,41 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
         full = parts[0].strip()
         follow_up = parts[1].strip()
 
+    # ── Second pass: editorial filter ─────────────────────────────────────────
+    full = await run_filter(full)
+
     return full, follow_up
+
+
+async def run_filter(text: str) -> str:
+    """Fast editorial pass — strips fluff, enforces bullets, tightens language."""
+    if not text.strip():
+        return text
+    filter_prompt = (
+        f"You are a strict editorial filter. Tighten this response:\n\n"
+        f"RULES:\n"
+        f"— Remove any opener sentence that doesn't contain a fact ('The analysis shows...', 'Based on...')\n"
+        f"— Cut hedging that adds nothing: 'it seems', 'arguably', 'in some ways', 'it's worth noting'\n"
+        f"— Each bullet must be ≤ 20 words. Split or cut if longer.\n"
+        f"— Keep source links exactly as formatted: [Title](url)\n"
+        f"— Keep bullet structure. Do not convert to prose.\n"
+        f"— Do not add anything. Only cut and tighten.\n"
+        f"— Return only the filtered response, nothing else.\n\n"
+        f"{text}"
+    )
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=600,
+            messages=[{"role": "user", "content": filter_prompt}],
+            stream=False,
+        )
+        filtered = (result.choices[0].message.content or "").strip()
+        _log_brain("write", "filter", f"{len(text)}→{len(filtered)} chars")
+        return filtered if filtered else text
+    except Exception as e:
+        print(f"[filter] error: {e}")
+        return text
 
 
 # ── History formatter ──────────────────────────────────────────────────────────
