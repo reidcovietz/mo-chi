@@ -1108,9 +1108,8 @@ async def websocket_endpoint(ws: WebSocket):
                 intent = await classify_intent(prompt, branch_history)
                 await emit(ws, "intent", intent=intent)
                 print(f"[followup] {intent!r} — {prompt!r}")
-                soul, ctx = _load_identity()
                 if intent == "casual":
-                    final_text = await run_casual(ws, prompt, branch_history, soul, ctx)
+                    final_text = await run_casual(ws, prompt, branch_history)
                     follow_up = ""
                 else:
                     final_text, follow_up = await run_moa(ws, prompt, branch_history,
