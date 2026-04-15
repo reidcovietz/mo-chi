@@ -154,20 +154,31 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   font-size:9px; letter-spacing:3px; text-transform:uppercase;
   color:rgba(80,230,150,0.65);
 }
-#result-meta { font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.18); }
-#result-new-btn {
-  font-size:9px; letter-spacing:2px; text-transform:uppercase;
-  color:rgba(80,230,150,0.55); background:none; border:1px solid rgba(80,230,150,0.2);
-  border-radius:5px; padding:4px 10px; cursor:pointer;
-  font-family:'Courier New',monospace; transition:all .2s;
+#result-meta { font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.18); flex:1; }
+#result-actions { display:flex; align-items:center; gap:6px; }
+.result-btn {
+  font-size:8.5px; letter-spacing:1.8px; text-transform:uppercase;
+  font-family:'Courier New',monospace; cursor:pointer;
+  border-radius:6px; padding:5px 12px; line-height:1;
+  transition:all .2s; white-space:nowrap;
 }
-#result-new-btn:hover { background:rgba(80,230,150,0.08); color:rgba(80,230,150,0.9); }
+#result-followup-btn {
+  color:rgba(80,140,255,.75); background:rgba(80,140,255,.06);
+  border:1px solid rgba(80,140,255,.22);
+}
+#result-followup-btn:hover { background:rgba(80,140,255,.14); color:rgba(130,180,255,.95); }
+#result-new-btn {
+  color:rgba(80,230,150,.7); background:rgba(80,230,150,.06);
+  border:1px solid rgba(80,230,150,.22);
+}
+#result-new-btn:hover { background:rgba(80,230,150,.13); color:rgba(80,230,150,1); }
 #result-close-btn {
-  font-size:11px; color:rgba(255,255,255,0.25); background:none; border:none;
-  cursor:pointer; padding:4px 6px; line-height:1; transition:color .2s;
+  font-size:13px; color:rgba(255,255,255,0.2); background:none;
+  border:1px solid rgba(255,255,255,.08); border-radius:6px;
+  cursor:pointer; padding:4px 8px; line-height:1; transition:all .2s;
   font-family:'Courier New',monospace;
 }
-#result-close-btn:hover { color:rgba(255,255,255,0.6); }
+#result-close-btn:hover { color:rgba(255,255,255,.6); border-color:rgba(255,255,255,.2); }
 #result-text {
   font-size:13.5px; line-height:1.8; overflow-y:auto; flex:1;
   white-space:pre-wrap; word-break:break-word;
