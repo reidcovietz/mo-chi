@@ -1283,9 +1283,23 @@ function connectWS() {
         } else if (msg.layer === 1) {
           fadeNodes(msg.agent);
           activeAgents.delete(msg.agent);
+          // Stamp timing + model onto the card header
+          const ind = document.getElementById(`ind-${msg.agent}`);
+          if (ind && msg.elapsed_ms) {
+            const secs = (msg.elapsed_ms / 1000).toFixed(1);
+            const badge = msg.fallback ? `⚠ fallback ${secs}s` : `${secs}s`;
+            const existing = ind.parentElement.querySelector('.prop-timing');
+            if (existing) existing.textContent = badge;
+            else {
+              const t = document.createElement('span');
+              t.className = 'prop-timing';
+              t.textContent = badge;
+              ind.parentElement.appendChild(t);
+            }
+            if (msg.fallback) ind.parentElement.closest('.prop-card').style.opacity = '0.65';
+          }
           if (activeAgents.size > 0)
             showStatus('calculating · ' + [...activeAgents].join(' · '));
-          // When all done, aggregator agent_start will update the status
         }
         break;
 
