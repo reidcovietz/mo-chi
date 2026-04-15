@@ -865,12 +865,17 @@ FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
 async def _call_model(ws: WebSocket, agent: dict, prompt: str,
                       provider: str, model: str) -> str:
     client = CLIENTS[provider]
+    # Prepend soul to every proposer — they are nodes of mo-chi, not generic agents
+    soul, _ = _load_identity()
+    soul_lines = [l for l in soul.splitlines() if l.strip()]
+    soul_brief = " ".join(soul_lines[:3])  # first 3 lines — core identity only
+    system = f"[You are a specialist node in mo-chi's neural network. {soul_brief}]\n\n{agent['system']}"
     full_text = []
     stream = await client.chat.completions.create(
         model=model,
         max_tokens=agent["max_tokens"],
         messages=[
-            {"role": "system", "content": agent["system"]},
+            {"role": "system", "content": system},
             {"role": "user",   "content": prompt},
         ],
         stream=True,
