@@ -787,7 +787,10 @@ let   promptStartTime = 0;
 let   searchSources   = [];
 let   lastFullResponse = '';
 
-function showResultPanel(fullText) {
+let currentResultSession = null;
+
+function showResultPanel(fullText, sessionRef) {
+  currentResultSession = sessionRef !== undefined ? sessionRef : curSession;
   resultText.textContent = fullText || document.getElementById('text-aggregator').textContent;
   const secs = ((Date.now() - promptStartTime) / 1000).toFixed(1);
   resultMeta.textContent = `${secs}s`;
