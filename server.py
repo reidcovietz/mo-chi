@@ -748,7 +748,9 @@ LAYER2_AGENT = {
         "— Cut hedging filler: 'it's worth noting', 'importantly', 'in some ways'\n"
         "— Ignore agent speculation that isn't grounded in something real\n"
         "— If agents mostly agree but it looks like shared bias, say what's actually uncertain\n\n"
-        "End on its own line: FOLLOWUP: <one sharp question>"
+        "End with a casual one-liner to keep the conversation going — short, natural, like something you'd say in person. "
+        "Examples: 'how does that land for you?', 'anything you want to dig into?', 'does that track?'. "
+        "Put it on its own line prefixed: FOLLOWUP: <your one-liner>"
     ),
 }
 
