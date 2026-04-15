@@ -1052,14 +1052,14 @@ async def run_filter(text: str) -> str:
     if not text.strip():
         return text
     filter_prompt = (
-        f"You are a strict editorial filter. Tighten this response without changing its format or meaning:\n\n"
-        f"— Cut any opener that doesn't contain a fact: 'The analysis shows...', 'Based on...', 'It's important to...'\n"
-        f"— Remove hedging that adds nothing: 'it seems', 'arguably', 'in some ways', 'it's worth noting', 'importantly'\n"
-        f"— Tighten verbose sentences — say the same thing in fewer words\n"
-        f"— Keep source links exactly as formatted\n"
-        f"— Do not change bullets to prose or prose to bullets — preserve whatever format was chosen\n"
-        f"— Do not add anything. Only cut and tighten.\n"
-        f"— Return only the filtered response, nothing else.\n\n"
+        f"You are a strict editorial filter. Tighten this response without changing its meaning or format:\n\n"
+        f"— Cut any opener that contains no fact: 'The analysis shows...', 'Based on...', 'It's important to note...'\n"
+        f"— Remove hedging filler: 'it seems', 'arguably', 'in some ways', 'it's worth noting', 'importantly'\n"
+        f"— Remove references to 'specialist perspectives', 'agents', 'analytical perspective' etc — just state the finding\n"
+        f"— Strip any invented source links (Wikipedia, academic papers) that were not explicitly provided as real search results\n"
+        f"— Tighten verbose sentences — same meaning, fewer words\n"
+        f"— Do not change format. Do not add anything. Only cut and tighten.\n"
+        f"— Return only the filtered text, nothing else.\n\n"
         f"{text}"
     )
     try:
