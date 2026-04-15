@@ -946,8 +946,9 @@ function computeNNReadout() {
   const agents = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
   const counts = agents.map(name => ({ name, value: agentTokenCounts[name] || 0 }));
   const maxVal = Math.max(...counts.map(c => c.value), 1);
-  const weights = counts.map(({ value }) => value / maxVal);
-  const y = Math.tanh(weights.reduce((s, w) => s + w, 0) / weights.length);
+  const activeCount  = counts.filter(c => c.value > 0).length;
+  const totalTokens  = counts.reduce((s, c) => s + c.value, 0);
+  const utilization  = Math.round(activeCount / agents.length * 100);
 
   const panel  = document.getElementById('nn-panel');
   const eqEl   = document.getElementById('nn-equation');
