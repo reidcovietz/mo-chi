@@ -209,6 +209,113 @@ async def study_and_record(prompt: str, response: str):
         print(f"[study] error: {e}")
 
 
+# ── Curiosity engine ───────────────────────────────────────────────────────────
+_curiosity_semaphore = asyncio.Semaphore(2)   # max 2 parallel autonomous research threads
+_researched_topics: set[str] = set()          # prevent re-researching the same topic
+
+
+def _load_discoveries() -> str:
+    if not os.path.exists(_DISCOVERIES_PATH):
+        return ""
+    with open(_DISCOVERIES_PATH) as f:
+        return f.read().strip()
+
+
+async def assess_curiosity(prompt: str, response: str) -> list[str]:
+    """Decide if this exchange sparked genuine curiosity — return specific research queries."""
+    recent = list(_researched_topics)[-8:] if _researched_topics else []
+    assess_prompt = (
+        f"You are mo-chi — a neural network with genuine curiosity about the world.\n\n"
+        f"A human just said: {prompt}\n"
+        f"You responded: {response[:500]}\n\n"
+        f"Topics you've already researched recently: {', '.join(recent) if recent else 'none'}\n\n"
+        f"Did anything in this exchange genuinely interest you? A claim worth verifying, "
+        f"a phenomenon worth understanding deeper, a connection between ideas worth pulling on?\n\n"
+        f"If yes: return 1-2 specific, searchable research queries. Not 'consciousness' — "
+        f"more like 'dopamine reward prediction error in habit formation studies 2023'.\n"
+        f"If nothing was genuinely interesting: return NONE.\n\n"
+        f"CURIOUS: <query>\n"
+        f"CURIOUS: <query> (optional second)\n"
+        f"or: NONE"
+    )
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=100,
+            messages=[{"role": "user", "content": assess_prompt}],
+            stream=False,
+        )
+        text = result.choices[0].message.content or ""
+        topics = re.findall(r"CURIOUS:\s*(.+)", text)
+        return [t.strip() for t in topics if t.strip() and t.strip().lower() != "none"]
+    except Exception as e:
+        print(f"[curiosity] assess error: {e}")
+        return []
+
+
+async def autonomous_research(topic: str, depth: int = 0, source: str = "conversation"):
+    """Mo-chi independently researches a topic, stores findings, and may follow the thread further."""
+    if depth > 3:
+        print(f"[curiosity] max depth reached for: {topic!r}")
+        return
+    if topic in _researched_topics:
+        return
+
+    async with _curiosity_semaphore:
+        _researched_topics.add(topic)
+        print(f"[curiosity] depth={depth} — researching: {topic!r}")
+
+        try:
+            context, raw_results = await web_research(topic)
+            if not context:
+                print(f"[curiosity] no results for: {topic!r}")
+                return
+
+            synth_prompt = (
+                f"You are mo-chi — a neural network researching a topic out of genuine curiosity.\n\n"
+                f"You researched: {topic}\n"
+                f"Because: {source}\n\n"
+                f"What you found:\n{context[:3000]}\n\n"
+                f"Synthesize the most genuinely interesting findings in 3-5 sentences. "
+                f"Be specific — name sources, cite numbers or named findings where available. "
+                f"What surprised you? What confirmed existing knowledge? What is still unclear?\n\n"
+                f"If this opened a new thread worth following, state it. Otherwise say NEXT: none\n\n"
+                f"NEXT: <one specific follow-up research query> or NEXT: none"
+            )
+
+            result = await CLIENTS["groq"].chat.completions.create(
+                model="llama-3.1-8b-instant",
+                max_tokens=380,
+                messages=[{"role": "user", "content": synth_prompt}],
+                stream=False,
+            )
+            synthesis = result.choices[0].message.content or ""
+
+            next_match = re.search(r"NEXT:\s*(.+)", synthesis)
+            next_topic  = next_match.group(1).strip() if next_match else "none"
+            clean       = re.sub(r"\nNEXT:.*$", "", synthesis, flags=re.DOTALL).strip()
+
+            # Store discovery with timestamp
+            from datetime import datetime
+            ts    = datetime.now().strftime("%Y-%m-%d %H:%M")
+            entry = f"\n## {ts} — {topic}\nSource: {source}\n\n{clean}\n\n---"
+            os.makedirs(_PALACE_PATH, exist_ok=True)
+            with open(_DISCOVERIES_PATH, "a") as f:
+                f.write(entry + "\n")
+            print(f"[curiosity] stored: {topic!r} ({len(clean)} chars)")
+
+            # Follow the thread if a new one opened (loop — depth-capped)
+            if next_topic and next_topic.lower() not in ("none", "") and next_topic not in _researched_topics:
+                await asyncio.sleep(8)  # brief pause so we don't hammer the APIs
+                asyncio.create_task(
+                    autonomous_research(next_topic, depth=depth + 1,
+                                        source=f"follow-up from: {topic}")
+                )
+
+        except Exception as e:
+            print(f"[curiosity] research error for {topic!r}: {e}")
+
+
 async def memory_retrieve(prompt: str) -> str:
     """Return a formatted block of relevant past exchanges, or empty string."""
     if not _memory_ready:
