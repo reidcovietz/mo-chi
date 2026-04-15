@@ -838,6 +838,9 @@ function showResultPanel(fullText, sessionRef) {
 }
 
 function hideResultPanel() {
+  // Re-dim the archived session that was being shown
+  if (currentResultSession && archivedSessions.includes(currentResultSession))
+    setSessionBrightness(currentResultSession, _dimFactor(currentResultSession));
   resultPanel.classList.remove('visible');
   uiBar.style.opacity = '1';
   uiBar.style.pointerEvents = '';
