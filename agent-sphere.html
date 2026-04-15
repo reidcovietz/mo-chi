@@ -858,7 +858,12 @@ function sendFollowUp() {
   followupBar.classList.remove('visible');
   lastPrompt = text;
   if (wsConnected && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'prompt', text }));
+    // Send this branch's full exchange history so the server only knows this thread
+    const branchHistory = (currentResultSession?.exchanges || []).flatMap(ex => [
+      { role: 'user',      content: ex.prompt },
+      { role: 'assistant', content: ex.response },
+    ]);
+    ws.send(JSON.stringify({ type: 'followup', text, branch_history: branchHistory }));
   }
 }
 
