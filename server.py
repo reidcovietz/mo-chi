@@ -219,10 +219,12 @@ async def reflect_and_evolve(prompt: str, response: str):
         if soul_m:
             with open(_SOUL_PATH, "w") as f:
                 f.write(soul_m.group(1).strip() + "\n")
+            _log_brain("write", "soul.md", "reflection")
             print("[soul] updated")
         if ctx_m:
             with open(_CONTEXT_PATH, "w") as f:
                 f.write(ctx_m.group(1).strip() + "\n")
+            _log_brain("write", "context.md", "reflection")
             print("[context] updated")
     except Exception as e:
         print(f"[reflection] error: {e}")
