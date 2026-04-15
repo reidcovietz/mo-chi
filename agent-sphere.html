@@ -1002,6 +1002,41 @@ function clearNNReadout() {
   resetTokenCounts();
 }
 
+// ── Brain debug log (top-left) ─────────────────────────────────────────────────
+const _brainPanel = document.getElementById('brain-debug');
+const _BRAIN_MAX  = 8;  // max lines visible at once
+const _BRAIN_TTL  = 7000;  // ms before a line fades and is removed
+
+const _BRAIN_ICONS = {
+  read:    '⟳',
+  write:   '✎',
+  evolve:  '↑',
+  web:     '⌕',
+  curious: '◎',
+  memory:  '▣',
+};
+
+function _brainLog(action, file, detail = '') {
+  const icon  = _BRAIN_ICONS[action] || '·';
+  const label = detail ? `${file}  ${detail}` : file;
+  const el    = document.createElement('div');
+  el.className = `brain-evt t-${action}`;
+  el.textContent = `${icon} ${label}`;
+  _brainPanel.appendChild(el);
+
+  // Keep max N lines
+  while (_brainPanel.children.length > _BRAIN_MAX) {
+    _brainPanel.removeChild(_brainPanel.firstChild);
+  }
+
+  // Fade out and remove after TTL
+  setTimeout(() => {
+    el.style.transition = 'opacity 1.2s';
+    el.style.opacity = '0';
+    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 1200);
+  }, _BRAIN_TTL);
+}
+
 // ── Session chain (radial branching from sphere) ──────────────────────────────
 const allResponseMeshes = [];
 const raycaster = new THREE.Raycaster();
