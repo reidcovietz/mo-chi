@@ -287,6 +287,20 @@ async def study_and_record(prompt: str, response: str):
     asyncio.create_task(_trigger_curiosity(prompt, response))
 
 
+async def _trigger_curiosity(prompt: str, response: str):
+    """Assess and spawn curiosity research — fully detached from main WS flow."""
+    try:
+        topics = await assess_curiosity(prompt, response)
+        for topic in topics:
+            _log_brain("curious", "web", topic[:60])
+            asyncio.create_task(
+                autonomous_research(topic, depth=0,
+                                    source=f"conversation: {prompt[:80]}")
+            )
+    except Exception as e:
+        print(f"[curiosity] trigger error: {e}")
+
+
 # ── Curiosity engine ───────────────────────────────────────────────────────────
 _curiosity_semaphore = asyncio.Semaphore(2)   # max 2 parallel autonomous research threads
 _researched_topics: set[str] = set()          # prevent re-researching the same topic
