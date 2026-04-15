@@ -350,6 +350,7 @@ async def autonomous_research(topic: str, depth: int = 0, source: str = "convers
 
     async with _curiosity_semaphore:
         _researched_topics.add(topic)
+        _log_brain("web", "search", topic[:60])
         print(f"[curiosity] depth={depth} — researching: {topic!r}")
 
         try:
