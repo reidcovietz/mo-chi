@@ -873,6 +873,35 @@ function hideResultPanel() {
 resultNewBtn.addEventListener('click', () => { hideResultPanel(); archiveSession(); });
 document.getElementById('result-close-btn').addEventListener('click', hideResultPanel);
 
+// ── Follow-up input in result panel ───────────────────────────────────────────
+const followupBar   = document.getElementById('result-followup-bar');
+const followupInput = document.getElementById('result-followup-input');
+const followupBtn   = document.getElementById('result-followup-btn');
+const followupSend  = document.getElementById('result-followup-send');
+
+followupBtn.addEventListener('click', () => {
+  followupBar.classList.toggle('visible');
+  if (followupBar.classList.contains('visible')) followupInput.focus();
+});
+
+function sendFollowUp() {
+  const text = followupInput.value.trim();
+  if (!text) return;
+  followupInput.value = '';
+  followupBar.classList.remove('visible');
+  lastPrompt = text;
+  if (wsConnected && ws.readyState === WebSocket.OPEN) {
+    const branchHistory = (currentResultSession?.exchanges || []).flatMap(ex => [
+      { role: 'user',      content: ex.prompt },
+      { role: 'assistant', content: ex.response },
+    ]);
+    ws.send(JSON.stringify({ type: 'followup', text, branch_history: branchHistory }));
+  }
+}
+
+followupSend.addEventListener('click', sendFollowUp);
+followupInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowUp(); });
+
 function clearPanels() {
   ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist','aggregator'].forEach(a => {
     const el = document.getElementById(`text-${a}`);
