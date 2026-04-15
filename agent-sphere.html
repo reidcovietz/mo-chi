@@ -1018,7 +1018,7 @@ function addChainExchange(promptText, responseText) {
   const rMesh = new THREE.Mesh(rGeo, rMat);
   rMesh.position.copy(rPos);
   group.add(rMesh);
-  allResponseMeshes.push({ mesh: rMesh, fullText: responseText });
+  allResponseMeshes.push({ mesh: rMesh, fullText: responseText, session: curSession });
 
   // Inner connector (prompt → response)
   const innerLine = new THREE.Line(
