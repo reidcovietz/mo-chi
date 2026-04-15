@@ -896,6 +896,15 @@ function sendFollowUp() {
 followupSend.addEventListener('click', sendFollowUp);
 followupInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendFollowUp(); });
 
+// Clicking the follow-up suggestion pre-fills the input and opens the bar
+document.getElementById('result-followup-suggestion').addEventListener('click', () => {
+  const sug = document.getElementById('result-followup-suggestion');
+  followupInput.value = sug.textContent;
+  followupBar.classList.add('visible');
+  followupInput.focus();
+  followupInput.select();
+});
+
 function clearPanels() {
   ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist','aggregator'].forEach(a => {
     const el = document.getElementById(`text-${a}`);
