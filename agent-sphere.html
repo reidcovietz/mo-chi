@@ -355,9 +355,11 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   <div id="result-header">
     <span id="result-label">synthesis · aggregator</span>
     <span id="result-meta"></span>
-    <button id="result-followup-btn">follow up</button>
-    <button id="result-new-btn">new prompt</button>
-    <button id="result-close-btn" title="close">&#x2715;</button>
+    <div id="result-actions">
+      <button id="result-followup-btn" class="result-btn">follow up</button>
+      <button id="result-new-btn" class="result-btn">new prompt</button>
+      <button id="result-close-btn" title="close">&#x2715;</button>
+    </div>
   </div>
   <div id="result-text"></div>
   <div id="result-sources"></div>
