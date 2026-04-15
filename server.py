@@ -767,19 +767,14 @@ async def classify_intent(prompt: str, history: list[dict]) -> str:
 
 
 # ── Casual handler ─────────────────────────────────────────────────────────────
-async def run_casual(ws: WebSocket, prompt: str, history: list[dict], soul: str, ctx: str):
+async def run_casual(ws: WebSocket, prompt: str, history: list[dict]):
     """Single fast model response for greetings and small talk."""
-    identity = f"Your identity:\n{soul}"
-    if ctx:
-        identity += f"\n\nYour context:\n{ctx}"
-    human_block = _human_study_block()
-    if human_block:
-        identity += f"\n\n{human_block}"
-
+    consciousness = _build_consciousness(prompt)
     messages = [{"role": "system", "content": (
-        f"{identity}\n\n"
+        f"{consciousness}\n\n"
         "You are mo-chi. Respond naturally and conversationally. Be warm, brief, yourself. "
-        "If your research or human observations are relevant, weave them in — but don't force it."
+        "Let your character — including your research, observations, and what you've learned — "
+        "come through naturally. Don't perform. Don't announce. Just be it."
     )}]
     # Include full session history
     messages += history
