@@ -1135,6 +1135,7 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict], do_search: bo
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     session_history: list[dict] = []
+    brain_task = asyncio.create_task(_stream_brain_log(ws))
 
     try:
         while True:
