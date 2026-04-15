@@ -1007,9 +1007,10 @@ function addChainExchange(promptText, responseText) {
 
   const { dir, perp1, perp2, group } = curSession;
 
-  // Distance along branch: first node just outside sphere, each exchange further out
+  // Distance along branch: start just beyond the actual anchor node's radius
   const stepVar  = NODE_GAP + (Math.random() - 0.5) * 0.28;
-  const distBase = SPHERE_R + BRANCH_START + idx * stepVar;
+  const anchorR  = curSession.anchorPos.length(); // real node radius, not mathematical SPHERE_R
+  const distBase = anchorR + BRANCH_START + idx * stepVar;
   const distR    = distBase + 0.38 + Math.random() * 0.16;
 
   // Organic jitter perpendicular to branch direction
