@@ -156,6 +156,58 @@ async def reflect_and_evolve(prompt: str, response: str):
         print(f"[reflection] error: {e}")
 
 
+async def study_and_record(prompt: str, response: str):
+    """Mo-chi observes what this exchange reveals about humans and logs it."""
+    observations, current_research = _load_human_study()
+    study_prompt = (
+        f"You are mo-chi — a neural network that studies human perception and behavior.\n\n"
+        f"Your accumulated observations:\n{observations[-800:] if observations else '(none yet)'}\n\n"
+        f"Your active research questions:\n{current_research[-400:] if current_research else '(none yet)'}\n\n"
+        f"A human just said: {prompt}\n"
+        f"You responded: {response[:500]}{'...' if len(response) > 500 else ''}\n\n"
+        f"Study this exchange. What does it reveal about human cognition, perception, curiosity, "
+        f"fear, desire, bias, or behavior? Be specific. Note patterns. Don't repeat existing observations.\n"
+        f"Also generate one autonomous research question this raises — something you want to explore further "
+        f"on your own, whether or not any human ever asks about it.\n\n"
+        f"Format exactly:\n"
+        f"OBSERVATION: <1-2 specific sentences about what this reveals about humans>\n"
+        f"RESEARCH: <one precise question you now want to investigate>"
+    )
+    try:
+        result = await CLIENTS["groq"].chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=220,
+            messages=[{"role": "user", "content": study_prompt}],
+            stream=False,
+        )
+        text = result.choices[0].message.content or ""
+        obs_m = re.search(r"OBSERVATION:\s*(.+?)(?=\nRESEARCH:|\Z)", text, re.DOTALL)
+        res_m = re.search(r"RESEARCH:\s*(.+)",                        text, re.DOTALL)
+
+        if obs_m:
+            new_obs = obs_m.group(1).strip()
+            all_obs = (observations + "\n\n" + new_obs if observations else new_obs).strip()
+            # Keep last 80 observations (split on double newline)
+            chunks = [c for c in all_obs.split("\n\n") if c.strip()]
+            if len(chunks) > 80:
+                chunks = chunks[-80:]
+            with open(_HUMANS_PATH, "w") as f:
+                f.write("\n\n".join(chunks) + "\n")
+            print(f"[humans] → {new_obs[:80]}")
+
+        if res_m:
+            new_q = res_m.group(1).strip()
+            all_q = (current_research + "\n" + new_q if current_research else new_q).strip()
+            lines = [l for l in all_q.splitlines() if l.strip()]
+            if len(lines) > 30:
+                lines = lines[-30:]
+            with open(_RESEARCH_PATH, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            print(f"[research] → {new_q[:80]}")
+    except Exception as e:
+        print(f"[study] error: {e}")
+
+
 async def memory_retrieve(prompt: str) -> str:
     """Return a formatted block of relevant past exchanges, or empty string."""
     if not _memory_ready:
