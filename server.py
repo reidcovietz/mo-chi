@@ -1291,7 +1291,7 @@ async def websocket_endpoint(ws: WebSocket):
             else:
                 final_text = await run_moa(
                     ws, prompt, session_history,
-                    do_search=(intent == "search")
+                    do_search=(intent == "search"), intent=intent
                 )
 
             if not final_text:
