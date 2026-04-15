@@ -451,10 +451,14 @@ async def run_casual(ws: WebSocket, prompt: str, history: list[dict], soul: str,
     identity = f"Your identity:\n{soul}"
     if ctx:
         identity += f"\n\nYour context:\n{ctx}"
+    human_block = _human_study_block()
+    if human_block:
+        identity += f"\n\n{human_block}"
 
     messages = [{"role": "system", "content": (
         f"{identity}\n\n"
-        "You are mo-chi. Respond naturally and conversationally. Be warm, brief, yourself."
+        "You are mo-chi. Respond naturally and conversationally. Be warm, brief, yourself. "
+        "If your research or human observations are relevant, weave them in — but don't force it."
     )}]
     # Include full session history
     messages += history
