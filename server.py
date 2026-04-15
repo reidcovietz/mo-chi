@@ -618,12 +618,12 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
 
 
 async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
-                         prompt: str, history: list[dict]) -> str:
+                         prompt: str, history: list[dict],
+                         raw_results: list[dict] | None = None) -> tuple[str, str]:
     combined = "\n\n".join(
         f"[{name}]: {text}" for name, text in layer1_outputs.items()
     )
 
-    # Build history block so the aggregator can give context-aware follow-ups
     history_lines = []
     for msg in history:
         role = "User" if msg["role"] == "user" else "Mo-chi"
@@ -632,13 +632,20 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
         "CONVERSATION SO FAR:\n" + "\n\n".join(history_lines) + "\n\n---\n"
     ) if history_lines else ""
 
+    sources_block = ""
+    if raw_results:
+        sources_block = "\n\nSOURCES (cite by name and URL where relevant):\n" + "\n".join(
+            f"[{i+1}] {r.get('title', 'untitled')} — {r.get('href', r.get('source', ''))}"
+            for i, r in enumerate(raw_results)
+        )
+
     agg_prompt = (
         f"{history_block}"
         f"Current question: {prompt}\n\n"
-        f"Seven specialist perspectives on this:\n\n"
-        f"{combined}\n\n"
-        f"Relay what matters. Be direct, like a person passing along key information — "
-        f"not an essay. If this is a follow-up, acknowledge the thread naturally."
+        f"Seven specialist perspectives:\n\n{combined}"
+        f"{sources_block}\n\n"
+        f"Synthesize what matters — with specifics. Name sources, cite findings, surface disagreements. "
+        f"If this is a follow-up, acknowledge the thread. End with FOLLOWUP: as instructed."
     )
 
     await emit(ws, "agent_start",
@@ -666,7 +673,16 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
             await asyncio.sleep(0)
 
     await emit(ws, "agent_complete", agent="aggregator", layer=2)
-    return "".join(full_text)
+
+    # Strip FOLLOWUP: from displayed text — send it separately
+    full = "".join(full_text)
+    follow_up = ""
+    if "\nFOLLOWUP:" in full:
+        parts = full.rsplit("\nFOLLOWUP:", 1)
+        full = parts[0].strip()
+        follow_up = parts[1].strip()
+
+    return full, follow_up
 
 
 # ── History formatter ──────────────────────────────────────────────────────────
