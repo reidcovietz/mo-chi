@@ -1038,7 +1038,8 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
 
 async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
                          prompt: str, history: list[dict],
-                         raw_results: list[dict] | None = None) -> str:
+                         raw_results: list[dict] | None = None,
+                         aggregator_note: str = "") -> str:
     combined = "\n\n".join(
         f"[{name}]: {text}" for name, text in layer1_outputs.items()
     )
