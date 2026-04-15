@@ -1189,33 +1189,6 @@ async def websocket_endpoint(ws: WebSocket):
                 print("[session] history cleared — new session started")
                 continue
 
-            if msg.get("type") == "followup":
-                # Follow-up scoped to a specific branch — use provided history only
-                prompt = msg.get("text", "").strip()
-                if not prompt:
-                    continue
-                branch_history = msg.get("branch_history", [])
-                await emit(ws, "prompt_received", text=prompt)
-                intent = await classify_intent(prompt, branch_history)
-                await emit(ws, "intent", intent=intent)
-                print(f"[followup] {intent!r} — {prompt!r}")
-                if intent == "casual":
-                    final_text = await run_casual(ws, prompt, branch_history)
-                    follow_up = ""
-                else:
-                    final_text, follow_up = await run_moa(ws, prompt, branch_history,
-                                                          do_search=(intent == "search"))
-                if not final_text:
-                    continue
-                await emit(ws, "agent_done", full_text=final_text, follow_up=follow_up)
-                # Append to branch history does NOT touch session_history
-                asyncio.create_task(study_and_record(prompt, final_text))
-                if intent != "casual":
-                    asyncio.create_task(memory_store(prompt, final_text))
-                    asyncio.create_task(reflect_and_evolve(prompt, final_text))
-                    asyncio.create_task(reflect_on_response(prompt, final_text))
-                continue
-
             if msg.get("type") != "prompt":
                 continue
 
