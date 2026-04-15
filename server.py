@@ -803,12 +803,13 @@ async def websocket_endpoint(ws: WebSocket):
                 soul, ctx = _load_identity()
                 if intent == "casual":
                     final_text = await run_casual(ws, prompt, branch_history, soul, ctx)
+                    follow_up = ""
                 else:
-                    final_text = await run_moa(ws, prompt, branch_history,
-                                               do_search=(intent == "search"))
+                    final_text, follow_up = await run_moa(ws, prompt, branch_history,
+                                                          do_search=(intent == "search"))
                 if not final_text:
                     continue
-                await emit(ws, "agent_done", full_text=final_text)
+                await emit(ws, "agent_done", full_text=final_text, follow_up=follow_up)
                 # Append to branch history does NOT touch session_history
                 asyncio.create_task(study_and_record(prompt, final_text))
                 if intent != "casual":
