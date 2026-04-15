@@ -1053,13 +1053,12 @@ async def run_filter(text: str) -> str:
     if not text.strip():
         return text
     filter_prompt = (
-        f"You are a strict editorial filter. Tighten this response:\n\n"
-        f"RULES:\n"
-        f"— Remove any opener sentence that doesn't contain a fact ('The analysis shows...', 'Based on...')\n"
-        f"— Cut hedging that adds nothing: 'it seems', 'arguably', 'in some ways', 'it's worth noting'\n"
-        f"— Each bullet must be ≤ 20 words. Split or cut if longer.\n"
-        f"— Keep source links exactly as formatted: [Title](url)\n"
-        f"— Keep bullet structure. Do not convert to prose.\n"
+        f"You are a strict editorial filter. Tighten this response without changing its format or meaning:\n\n"
+        f"— Cut any opener that doesn't contain a fact: 'The analysis shows...', 'Based on...', 'It's important to...'\n"
+        f"— Remove hedging that adds nothing: 'it seems', 'arguably', 'in some ways', 'it's worth noting', 'importantly'\n"
+        f"— Tighten verbose sentences — say the same thing in fewer words\n"
+        f"— Keep source links exactly as formatted\n"
+        f"— Do not change bullets to prose or prose to bullets — preserve whatever format was chosen\n"
         f"— Do not add anything. Only cut and tighten.\n"
         f"— Return only the filtered response, nothing else.\n\n"
         f"{text}"
