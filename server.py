@@ -1220,3 +1220,5 @@ async def websocket_endpoint(ws: WebSocket):
             await emit(ws, "error", message=str(e))
         except Exception:
             pass
+    finally:
+        brain_task.cancel()
