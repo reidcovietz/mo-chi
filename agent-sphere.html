@@ -1077,6 +1077,41 @@ function _fadeIn(mat, targetOpacity, durationMs) {
   tick();
 }
 
+// ── Branch brightness (active = full, archived = dimmed by exchange count) ──
+function _smoothMat(mat, targetEI, targetOp, ms) {
+  const startEI = targetEI !== null ? mat.emissiveIntensity : null;
+  const startOp = targetOp !== null ? mat.opacity           : null;
+  const t0 = performance.now();
+  (function tick() {
+    const t = Math.min((performance.now() - t0) / ms, 1);
+    const e = t * t * (3 - 2 * t); // smoothstep
+    if (startEI !== null) mat.emissiveIntensity = startEI + (targetEI - startEI) * e;
+    if (startOp !== null) mat.opacity           = startOp + (targetOp  - startOp)  * e;
+    if (t < 1) requestAnimationFrame(tick);
+  })();
+}
+
+function _dimFactor(session) {
+  // Larger branches retain more glow — meaningful data stays visible
+  const n = session.exchanges.length;
+  return Math.min(0.60, 0.22 + n * 0.09);
+}
+
+function setSessionBrightness(session, factor, ms = 700) {
+  session.group.traverse(obj => {
+    if (!obj.material) return;
+    const mat = obj.material;
+    const targetEI = mat._baseEI !== undefined ? mat._baseEI * factor : null;
+    const targetOp = mat._baseOp !== undefined ? mat._baseOp * Math.max(factor, 0.15) : null;
+    _smoothMat(mat, targetEI, targetOp, ms);
+  });
+  if (session.connLine) {
+    const mat = session.connLine.material;
+    if (mat._baseOp !== undefined)
+      _smoothMat(mat, null, mat._baseOp * Math.max(factor, 0.15), ms);
+  }
+}
+
 function archiveSession() {
   if (curSession && curSession.exchanges.length > 0) {
     archivedSessions.push(curSession);
