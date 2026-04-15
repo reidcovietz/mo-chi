@@ -1059,11 +1059,16 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
             for i, r in enumerate(raw_results)
         )
 
+    note_line = (
+        f"\nDIRECTOR NOTE: {aggregator_note}\n"
+        if aggregator_note else ""
+    )
     agg_prompt = (
         f"{history_block}"
         f"Current question: {prompt}\n\n"
-        f"Seven specialist perspectives (each includes a confidence rating):\n\n{combined}"
+        f"Specialist perspectives (each includes a confidence rating):\n\n{combined}"
         f"{sources_block}\n\n"
+        f"{note_line}"
         f"Evaluate each input by its confidence level and evidence quality before synthesizing. "
         f"Weight stronger inputs more heavily. Flag any consensus that might reflect shared bias rather than evidence."
     )
