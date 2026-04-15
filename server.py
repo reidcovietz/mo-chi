@@ -302,7 +302,7 @@ async def _trigger_curiosity(prompt: str, response: str):
 
 
 # ── Curiosity engine ───────────────────────────────────────────────────────────
-_curiosity_semaphore = asyncio.Semaphore(2)   # max 2 parallel autonomous research threads
+_curiosity_semaphore: asyncio.Semaphore | None = None  # created lazily inside event loop
 _researched_topics: set[str] = set()          # prevent re-researching the same topic
 
 
