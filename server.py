@@ -597,6 +597,7 @@ async def memory_store(prompt: str, response: str):
                 agent="mo-chi",
             ),
         )
+        _log_brain("memory", "palace", f"stored {len(content)} chars")
         print(f"[memory] stored exchange ({len(content)} chars)")
     except Exception as e:
         print(f"[memory] store error: {e}")
