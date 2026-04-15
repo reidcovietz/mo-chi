@@ -886,6 +886,7 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
         return results
 
     raw = await asyncio.get_event_loop().run_in_executor(None, _search)
+    _log_brain("web", "search", f"{query[:55]} ({len(raw)} results)")
     print(f"[research] found {len(raw)} results for: {query!r}")
 
     if not raw:
