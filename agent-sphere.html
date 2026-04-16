@@ -790,7 +790,6 @@ function beginFly() {
   if (STATE === 'flying' || STATE === 'processing') return;
   STATE = 'flying'; elapsed = 0;
   resetAll();
-  Object.keys(agentTokenPulse).forEach(k => delete agentTokenPulse[k]);
   PROMPT_START = getPromptStart();
   promptMesh.position.copy(PROMPT_START);
   promptMat.opacity = 1;
