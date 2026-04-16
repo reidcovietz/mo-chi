@@ -629,7 +629,7 @@ CLIENTS = {
 
 # ── Agent definitions ──────────────────────────────────────────────────────────
 LAYER1_AGENTS = [
-    # ── analytical — groq llama fast ───────────────────────────────────────────
+    # ── analytical — groq llama (fast, grounded analysis) ──────────────────────
     {
         "name":      "analytical",
         "sub_layer": 1,
@@ -645,13 +645,13 @@ LAYER1_AGENTS = [
             "Be substantive but tight — no filler."
         ),
     },
-    # ── creative — groq gemma (different architecture = real diversity) ─────────
+    # ── creative — gemini flash-8b (different family, lateral thinking) ─────────
     {
         "name":      "creative",
         "sub_layer": 2,
         "nodes":     list(range(33, 37)),
-        "provider":  "groq",
-        "model":     "gemma2-9b-it",
+        "provider":  "gemini",
+        "model":     "gemini-1.5-flash-8b",
         "max_tokens": 350,
         "system": (
             "You are a creative lateral-thinking agent in a multi-agent network. "
@@ -661,13 +661,13 @@ LAYER1_AGENTS = [
             "Avoid vague speculation — lateral thinking that cites something concrete is more valuable."
         ),
     },
-    # ── critic — groq gemma ────────────────────────────────────────────────────
+    # ── critic — openrouter mistral (independent model family) ────────────────
     {
         "name":      "critic",
         "sub_layer": 3,
         "nodes":     list(range(37, 70)),
-        "provider":  "groq",
-        "model":     "gemma2-9b-it",
+        "provider":  "openrouter",
+        "model":     "mistralai/mistral-7b-instruct:free",
         "max_tokens": 350,
         "system": (
             "You are a critical evaluation agent in a multi-agent network. "
@@ -677,8 +677,7 @@ LAYER1_AGENTS = [
             "Flag if the prompt itself contains a false premise or loaded assumption."
         ),
     },
-    # ── visionary — gemini flash (different model family = genuine diversity) ───
-    # Previously: openrouter/mistral-7b-instruct:free — was hanging constantly
+    # ── visionary — gemini flash (strongest Gemini, long-horizon reasoning) ────
     {
         "name":      "visionary",
         "sub_layer": 4,
@@ -694,13 +693,13 @@ LAYER1_AGENTS = [
             "Avoid utopian or dystopian extremes unless the evidence genuinely supports them."
         ),
     },
-    # ── contrarian — groq llama (replaced deprecated llama3-8b-8192) ───────────
+    # ── contrarian — groq gemma (different architecture from llama above) ───────
     {
         "name":      "contrarian",
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
         "provider":  "groq",
-        "model":     "llama-3.1-8b-instant",
+        "model":     "gemma2-9b-it",
         "max_tokens": 350,
         "system": (
             "You are a contrarian agent in a multi-agent network. "
@@ -710,13 +709,13 @@ LAYER1_AGENTS = [
             "If the contrarian position has no merit, say so directly instead of arguing it anyway."
         ),
     },
-    # ── reasoning — groq llama ─────────────────────────────────────────────────
+    # ── reasoning — openrouter qwen (third model family) ──────────────────────
     {
         "name":      "reasoning",
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
-        "provider":  "groq",
-        "model":     "llama-3.1-8b-instant",
+        "provider":  "openrouter",
+        "model":     "qwen/qwen-2-7b-instruct:free",
         "max_tokens": 350,
         "system": (
             "You are a structured reasoning agent in a multi-agent network. "
@@ -726,13 +725,13 @@ LAYER1_AGENTS = [
             "If there are multiple valid logical paths to different conclusions, name them."
         ),
     },
-    # ── pragmatist — groq gemma ────────────────────────────────────────────────
+    # ── pragmatist — openrouter llama-3.2 (different size/checkpoint) ─────────
     {
         "name":      "pragmatist",
         "sub_layer": 7,
         "nodes":     list(range(125, 128)),
-        "provider":  "groq",
-        "model":     "gemma2-9b-it",
+        "provider":  "openrouter",
+        "model":     "meta-llama/llama-3.2-3b-instruct:free",
         "max_tokens": 350,
         "system": (
             "You are a pragmatist agent in a multi-agent network. "
