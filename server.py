@@ -1074,7 +1074,8 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
         elapsed = int((_time.monotonic() - t_start) * 1000)
         await emit(ws, "agent_complete", agent=agent["name"], layer=1,
                    model=FALLBACK["model"], elapsed_ms=elapsed,
-                   tokens=len(result.split()), fallback=True)
+                   tokens=len(result.split()), fallback=True,
+                   confidence=_parse_confidence(result))
         print(f"[agent] {agent['name']} ✓ fallback  {elapsed}ms")
         return result
     except Exception as e:
