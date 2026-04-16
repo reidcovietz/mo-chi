@@ -978,21 +978,21 @@ function computeNNReadout() {
   });
 
   counts.forEach(({ name, value }) => {
-    const pct    = (value / maxVal) * 100;
-    const color  = AGENT_BAR_COLOR[name] || '#888';
-    const failed = value === 0;
-    const row    = document.createElement('div');
-    row.className = 'nn-row';
-    row.innerHTML = `
+    const sharePct = totalTokens > 0 ? (value / totalTokens * 100) : 0;
+    const color    = AGENT_BAR_COLOR[name] || '#888';
+    const failed   = value === 0;
+    const row      = document.createElement('div');
+    row.className  = 'nn-row';
+    row.innerHTML  = `
       <span class="nn-label" style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${name}${failed ? ' ✗' : ''}</span>
-      <div class="nn-bar-wrap">
-        <div class="nn-bar" style="width:${pct.toFixed(1)}%;background:${color}${failed ? '33' : ''}"></div>
-      </div>
-      <span class="nn-val" style="color:${failed ? 'rgba(255,80,80,.4)' : ''}">${value}</span>`;
+      <span class="nn-val" style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${failed ? '—' : sharePct.toFixed(1) + '%'}</span>`;
     panel.insertBefore(row, eqEl);
   });
 
-  eqEl.textContent = `${activeCount}/${agents.length} agents · ${totalTokens} tokens · ${utilization}% network`;
+  // Linear regression output: ŷ = Σ(wᵢxᵢ) where wᵢ = 1/n, xᵢ = normalized token share
+  const w = 1 / agents.length;
+  const yHat = counts.reduce((sum, { value }) => sum + w * (totalTokens > 0 ? value / totalTokens : 0), 0);
+  eqEl.textContent = `${activeCount}/${agents.length} agents · ŷ = Σ(wᵢxᵢ) = ${yHat.toFixed(4)}`;
   panel.classList.add('visible');
 }
 
