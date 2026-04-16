@@ -446,9 +446,9 @@ import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js
 import { OutputPass }       from 'three/addons/postprocessing/OutputPass.js';
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 document.getElementById('canvas-wrap').appendChild(renderer.domElement);
