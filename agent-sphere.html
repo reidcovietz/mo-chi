@@ -241,24 +241,40 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
 /* ── Mobile agent strip (replaces side panels on small screens) ── */
 #mobile-agents { display:none; }
 
-@media (max-width: 768px) {
-  /* Hide desktop side panels — sphere IS the show on mobile */
+/* ── Tablet: hide cards, they're too cramped below ~960px ── */
+@media (max-width: 960px) {
   #proposers { display:none; }
+}
 
-  /* Compact title */
-  #title { font-size:8px; letter-spacing:3px; top:14px; }
+@media (max-width: 768px) {
+  /* Brain debug — dev noise, hide on mobile */
+  #brain-debug { display:none; }
 
-  /* Status line sits just below title */
-  #status { top:30px; font-size:9px; min-width:180px; }
+  /* Title — left-aligned, single line, no version on tiny screens */
+  #title {
+    font-size:8px; letter-spacing:3px;
+    top:16px; left:16px;
+    transform:none; white-space:nowrap;
+  }
+  #title span { display:none; } /* hide version number on mobile */
 
-  /* WS dot */
-  #ws-dot { top:18px; right:14px; }
+  /* Status — single line, truncated, left-aligned below title */
+  #status {
+    top:32px; left:16px; transform:none;
+    font-size:8px; letter-spacing:1.5px;
+    min-width:0; max-width:calc(100vw - 48px);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    text-align:left;
+  }
 
-  /* Agent strip — row of color dots below status */
+  /* WS dot — top right */
+  #ws-dot { top:18px; right:16px; }
+
+  /* Agent dot strip — below status, left-aligned */
   #mobile-agents {
     display:flex;
     position:fixed;
-    top:50px; left:50%; transform:translateX(-50%);
+    top:50px; left:16px; transform:none;
     gap:9px; align-items:center;
     background:rgba(7,8,15,0.55);
     padding:5px 13px;
@@ -276,25 +292,37 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   }
   .mob-dot.active { opacity:1; transform:scale(1.5); }
 
+  /* NN panel — above the input bar */
+  #nn-panel.visible { bottom:80px; }
+
   /* Input bar — full width, docked to bottom, safe-area aware */
   #ui {
-    left:0; right:0; bottom:0;
-    transform:none;
-    width:100%;
+    left:0; right:0; bottom:0; transform:none; width:100%;
     display:flex;
     padding:10px 14px;
-    padding-bottom:max(12px, env(safe-area-inset-bottom));
-    background:rgba(7,8,15,0.9);
+    padding-bottom:max(14px, env(safe-area-inset-bottom));
+    background:rgba(7,8,15,0.92);
     backdrop-filter:blur(16px);
     border-top:1px solid rgba(255,255,255,0.06);
   }
   #prompt-input {
-    flex:1;
-    width:auto;
-    min-width:0;
+    flex:1; width:auto; min-width:0;
     font-size:16px; /* prevent iOS zoom on focus */
   }
   #send-btn { padding:11px 18px; font-size:11px; }
+
+  /* Result panel — full width, sits above input bar */
+  #result-panel {
+    width:calc(100vw - 24px);
+    left:12px; right:12px; transform:none;
+    max-height:56vh; padding:14px 16px;
+  }
+  #result-panel.visible { bottom:78px; }
+
+  /* Result action buttons — tighter on mobile */
+  #result-actions { gap:5px; }
+  .result-btn { padding:5px 10px; font-size:7.5px; letter-spacing:1.5px; }
+  #result-close-btn { padding:4px 7px; }
 }
 </style>
 </head>
