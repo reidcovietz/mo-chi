@@ -661,13 +661,13 @@ LAYER1_AGENTS = [
             "Avoid vague speculation — lateral thinking that cites something concrete is more valuable."
         ),
     },
-    # ── critic — openrouter mistral (independent model family) ────────────────
+    # ── critic — groq llama 70b (strong, different size class from analytical) ──
     {
         "name":      "critic",
         "sub_layer": 3,
         "nodes":     list(range(37, 70)),
-        "provider":  "openrouter",
-        "model":     "mistralai/mistral-7b-instruct:free",
+        "provider":  "groq",
+        "model":     "llama-3.3-70b-versatile",
         "max_tokens": 350,
         "system": (
             "You are a critical evaluation agent in a multi-agent network. "
