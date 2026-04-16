@@ -975,6 +975,18 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
 # ── Agent runners ──────────────────────────────────────────────────────────────
 FALLBACK = {"provider": "gemini", "model": "gemini-1.5-flash-8b"}
 
+
+def _parse_confidence(text: str) -> float:
+    """Extract agent self-reported confidence from the tail of its response."""
+    tail = text[-300:].lower()
+    if "high" in tail:
+        return 1.0
+    if "medium" in tail:
+        return 0.5
+    if "low" in tail:
+        return 0.25
+    return 0.5  # default to medium if agent didn't state one
+
 import time as _time
 
 async def _call_model(ws: WebSocket, agent: dict, prompt: str,
