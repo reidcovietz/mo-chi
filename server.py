@@ -709,13 +709,13 @@ LAYER1_AGENTS = [
             "If the contrarian position has no merit, say so directly instead of arguing it anyway."
         ),
     },
-    # ── reasoning — openrouter qwen (third model family) ──────────────────────
+    # ── reasoning — groq llama-3.2 3b (small, fast, different checkpoint) ──────
     {
         "name":      "reasoning",
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
-        "provider":  "openrouter",
-        "model":     "qwen/qwen-2-7b-instruct:free",
+        "provider":  "groq",
+        "model":     "llama-3.2-3b-preview",
         "max_tokens": 350,
         "system": (
             "You are a structured reasoning agent in a multi-agent network. "
