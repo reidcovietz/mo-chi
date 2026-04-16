@@ -756,6 +756,8 @@ const FLY_DUR  = 1.15;
 const FADE_DUR = 2.0;
 const easeInOut = t => t < .5 ? 2*t*t : -1 + (4 - 2*t)*t;
 
+let edgesDirty = false;
+
 function activateNodes(nodeIds, agent) {
   nodeIds.forEach(id => {
     if (id < 0 || id >= nodeStates.length) return;
@@ -766,6 +768,7 @@ function activateNodes(nodeIds, agent) {
     ns.glowT      = 0;
     ns.mat.emissive.copy(AGENT_COLOR[agent] ?? new THREE.Color(0.5, 0.5, 0.5));
   });
+  edgesDirty = true;
   setIndicator(agent, true);
 }
 
@@ -773,6 +776,7 @@ function fadeNodes(agent) {
   nodeStates.forEach(ns => {
     if (ns.agent === agent) ns.fadingOut = true;
   });
+  edgesDirty = true;
   setIndicator(agent, false);
 }
 
