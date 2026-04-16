@@ -1312,7 +1312,6 @@ function connectWS() {
       case 'token':
         appendToken(msg.agent, msg.text);
         if (msg.layer === 1) trackToken(msg.agent);
-        agentTokenPulse[msg.agent] = 1.0;  // real token — spike glow
         break;
 
       case 'agent_complete':
