@@ -1080,10 +1080,10 @@ function _ensureSession() {
   scene.add(curSession.group);
 }
 
-function addChainExchange(promptText, responseText) {
+function addChainExchange(promptText, responseText, tokenSnapshot) {
   _ensureSession();
   const idx = curSession.exchanges.length;
-  curSession.exchanges.push({ prompt: promptText, response: responseText });
+  curSession.exchanges.push({ prompt: promptText, response: responseText, tokenSnapshot });
 
   const { dir, perp1, perp2, group } = curSession;
 
