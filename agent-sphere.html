@@ -1339,7 +1339,8 @@ function connectWS() {
         lastFullResponse = msg.full_text;
         beginFade();
         computeNNReadout();
-        addChainExchange(lastPrompt, msg.full_text);
+        const _snap = { ...agentTokenCounts };
+        addChainExchange(lastPrompt, msg.full_text, _snap);
         setTimeout(() => showResultPanel(msg.full_text, curSession), 600);
         break;
 
