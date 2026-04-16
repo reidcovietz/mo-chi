@@ -725,13 +725,13 @@ LAYER1_AGENTS = [
             "If there are multiple valid logical paths to different conclusions, name them."
         ),
     },
-    # ── pragmatist — openrouter llama-3.2 (different size/checkpoint) ─────────
+    # ── pragmatist — openrouter llama-3.1-8b (single OR slot, less flaky) ──────
     {
         "name":      "pragmatist",
         "sub_layer": 7,
         "nodes":     list(range(125, 128)),
         "provider":  "openrouter",
-        "model":     "meta-llama/llama-3.2-3b-instruct:free",
+        "model":     "meta-llama/llama-3.1-8b-instruct:free",
         "max_tokens": 350,
         "system": (
             "You are a pragmatist agent in a multi-agent network. "
