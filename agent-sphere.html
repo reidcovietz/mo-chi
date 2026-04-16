@@ -997,7 +997,7 @@ function renderNNReadout(snapshot) {
 }
 
 function computeNNReadout() {
-  renderNNReadout(agentTokenCounts);
+  renderNNReadout({ tokens: { ...agentTokenCounts }, confidence: { ...agentConfidence } });
 }
 
 function clearNNReadout() {
