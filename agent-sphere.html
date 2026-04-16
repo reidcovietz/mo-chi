@@ -963,16 +963,14 @@ function resetTokenCounts() {
   Object.keys(agentTokenCounts).forEach(k => delete agentTokenCounts[k]);
 }
 
-function computeNNReadout() {
+function renderNNReadout(snapshot) {
   const agents = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
-  const counts = agents.map(name => ({ name, value: agentTokenCounts[name] || 0 }));
-  const maxVal = Math.max(...counts.map(c => c.value), 1);
-  const activeCount  = counts.filter(c => c.value > 0).length;
-  const totalTokens  = counts.reduce((s, c) => s + c.value, 0);
-  const utilization  = Math.round(activeCount / agents.length * 100);
+  const counts = agents.map(name => ({ name, value: snapshot[name] || 0 }));
+  const activeCount = counts.filter(c => c.value > 0).length;
+  const totalTokens = counts.reduce((s, c) => s + c.value, 0);
 
-  const panel  = document.getElementById('nn-panel');
-  const eqEl   = document.getElementById('nn-equation');
+  const panel = document.getElementById('nn-panel');
+  const eqEl  = document.getElementById('nn-equation');
   Array.from(panel.children).forEach(c => {
     if (c.id !== 'nn-panel-header' && c.id !== 'nn-equation') c.remove();
   });
@@ -990,10 +988,14 @@ function computeNNReadout() {
   });
 
   // Linear regression output: ŷ = Σ(wᵢxᵢ) where wᵢ = 1/n, xᵢ = normalized token share
-  const w = 1 / agents.length;
+  const w    = 1 / agents.length;
   const yHat = counts.reduce((sum, { value }) => sum + w * (totalTokens > 0 ? value / totalTokens : 0), 0);
   eqEl.textContent = `${activeCount}/${agents.length} agents · ŷ = Σ(wᵢxᵢ) = ${yHat.toFixed(4)}`;
   panel.classList.add('visible');
+}
+
+function computeNNReadout() {
+  renderNNReadout(agentTokenCounts);
 }
 
 function clearNNReadout() {
