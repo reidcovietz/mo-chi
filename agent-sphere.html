@@ -628,8 +628,8 @@ function learnStep(lr = 0.018) {
 }
 
 // Real token pulse — spikes to 1.0 on each token received, decays naturally.
-// This is the ONLY signal driving glow intensity — no simulation, no fake math.
-const agentTokenPulse = {};
+// Token counts tracked for NN readout only — glow is agent lifecycle (start/complete)
+
 
 // Tracks which layer-1 agents are currently running — drives status line honestly
 const activeAgents = new Set();
