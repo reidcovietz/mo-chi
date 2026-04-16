@@ -118,16 +118,12 @@ body { background:#07080f; overflow:hidden; font-family:'Courier New',monospace;
   font-size:7px; letter-spacing:3px; text-transform:uppercase;
   color:rgba(80,230,150,.28); margin-bottom:1px;
 }
-.nn-row { display:flex; align-items:center; gap:4px; }
+.nn-row { display:flex; align-items:center; justify-content:space-between; gap:4px; }
 .nn-label {
   font-size:7px; letter-spacing:1px; text-transform:uppercase;
   width:58px; flex-shrink:0; opacity:.42;
 }
-.nn-bar-wrap {
-  flex:1; height:2px; background:rgba(255,255,255,.04); border-radius:2px; overflow:hidden;
-}
-.nn-bar { height:100%; border-radius:2px; transition:width .6s cubic-bezier(.16,1,.3,1); }
-.nn-val { font-size:7px; width:20px; text-align:right; opacity:.38; flex-shrink:0; }
+.nn-val { font-size:7px; text-align:right; opacity:.55; flex-shrink:0; font-variant-numeric:tabular-nums; }
 #nn-equation {
   font-size:7px; letter-spacing:.4px; margin-top:2px;
   color:rgba(80,230,150,.32); text-align:center;
