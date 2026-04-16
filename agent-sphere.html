@@ -1438,17 +1438,6 @@ function animate() {
 
   if (STATE !== 'idle') elapsed += dt;
 
-  // Decay real token pulses — each spike lasts ~0.3s then fades
-  Object.keys(agentTokenPulse).forEach(a => {
-    agentTokenPulse[a] = Math.max(0, agentTokenPulse[a] - dt * 3.5);
-  });
-
-  // Hebbian weight updates still run (drives edge brightness via edgeW)
-  if (nnActive) {
-    nnTimer += dt;
-    if (nnTimer >= NN_DT) { forwardPass(nnInp); nnTimer = 0; }
-  }
-
   // Flying: prompt sphere moves from outside to center
   if (STATE === 'flying') {
     const prog = Math.min(elapsed / FLY_DUR, 1);
@@ -1461,7 +1450,7 @@ function animate() {
 
   // Processing: prompt sphere sits quietly at center — models have it now
   if (STATE === 'processing') {
-    const pulse = 0.30 + 0.04 * Math.sin(elapsed * 2.8);  // gentle, slow
+    const pulse = 0.30 + 0.04 * Math.sin(elapsed * 2.8);
     promptMesh.scale.setScalar(pulse);
     promptMat.emissiveIntensity = 0.08 + 0.04 * Math.sin(elapsed * 2.8);
     promptLight.intensity = 0.05 + 0.03 * Math.sin(elapsed * 2.8);
@@ -1483,42 +1472,47 @@ function animate() {
     }
   }
 
-  // Node glow animation — intensity driven by real neuron activation a[i]
+  // Node glow — agent lifecycle only (start → full glow, complete → fade out)
+  // Token data lives in the NN readout, not here.
   const fadeScale = STATE === 'fading' ? Math.max(0, 1 - elapsed / FADE_DUR) : 1;
+  let nodesDirtyThisFrame = false;
 
-  nodeStates.forEach((ns, ni) => {
+  nodeStates.forEach(ns => {
     if (!ns.glowActive) {
-      // Fade back to dim baseline (not full dark) — node always shows its agent colour
-      ns.mat.emissive.copy(ns.baseColor);
-      ns.mat.emissiveIntensity += (DIM_GLOW - ns.mat.emissiveIntensity) * Math.min(dt * 5, 1);
-      if (ns.mesh.scale.x > 1) ns.mesh.scale.setScalar(1);
+      const target = DIM_GLOW;
+      if (Math.abs(ns.mat.emissiveIntensity - target) > 0.001) {
+        ns.mat.emissiveIntensity += (target - ns.mat.emissiveIntensity) * Math.min(dt * 4, 1);
+        nodesDirtyThisFrame = true;
+      }
       return;
     }
 
     if (ns.fadingOut) {
-      ns.glowT = Math.max(0, ns.glowT - dt * 1.6);
+      ns.glowT = Math.max(0, ns.glowT - dt * 1.4);
       if (ns.glowT <= 0) {
         ns.glowActive = false;
         ns.agent = null;
         ns.mat.emissive.copy(ns.baseColor);
         ns.mat.emissiveIntensity = DIM_GLOW;
-        ns.mesh.scale.setScalar(1);
+        edgesDirty = true;
         return;
       }
     } else {
       ns.glowT += dt;
     }
 
-    const progress  = Math.min(ns.glowT / 0.55, 1);
-    const pulse     = 0.72 + 0.32 * Math.sin(ns.glowT * 3.8 + ns.phaseOff);
-    // Intensity driven purely by real token throughput — 0 when LLM is silent
-    const tokenPulse = agentTokenPulse[ns.agent] || 0;
-    const neuronAct  = 0.20 + 0.80 * tokenPulse;
-    ns.mat.emissiveIntensity = DIM_GLOW + progress * pulse * neuronAct * fadeScale;
-    ns.mesh.scale.setScalar(1 + progress * tokenPulse * 0.28);
+    // Steady glow with gentle sine breath — honest: agent is running, period
+    const ramp  = Math.min(ns.glowT / 0.5, 1);
+    const breath = 0.80 + 0.20 * Math.sin(ns.glowT * 2.2 + ns.phaseOff);
+    ns.mat.emissiveIntensity = DIM_GLOW + ramp * 0.55 * breath * fadeScale;
+    nodesDirtyThisFrame = true;
   });
 
-  updateEdges();
+  if (nodesDirtyThisFrame || edgesDirty) {
+    updateEdges();
+    edgesDirty = false;
+  }
+
   composer.render();
 }
 
