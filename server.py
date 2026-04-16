@@ -1047,7 +1047,8 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             elapsed = int((_time.monotonic() - t_start) * 1000)
             await emit(ws, "agent_complete", agent=agent["name"], layer=1,
                        model=agent["model"], elapsed_ms=elapsed,
-                       tokens=len(result.split()))
+                       tokens=len(result.split()),
+                       confidence=_parse_confidence(result))
             print(f"[agent] {agent['name']} ✓  {elapsed}ms  ({agent['provider']}/{agent['model']})")
             return result
         except asyncio.TimeoutError:
