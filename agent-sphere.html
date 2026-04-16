@@ -1134,7 +1134,8 @@ function addChainExchange(promptText, responseText, tokenSnapshot) {
   const rMesh = new THREE.Mesh(rGeo, rMat);
   rMesh.position.copy(rPos);
   group.add(rMesh);
-  allResponseMeshes.push({ mesh: rMesh, fullText: responseText, session: curSession });
+  const _exch = curSession.exchanges[curSession.exchanges.length - 1];
+  allResponseMeshes.push({ mesh: rMesh, fullText: responseText, session: curSession, tokenSnapshot: _exch?.tokenSnapshot });
 
   // Inner connector (prompt → response)
   const innerLineMat = new THREE.LineBasicMaterial({ color: 0x2a4880, transparent: true, opacity: 0 });
