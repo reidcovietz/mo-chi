@@ -1051,7 +1051,7 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             if attempt < 1:
                 await asyncio.sleep(0.5)
 
-    # Primary exhausted — immediate fallback to groq/llama-3.1-8b-instant
+    # Primary exhausted — fallback to gemini (avoids piling onto groq when it's rate-limited)
     _log_brain("warn", agent["name"], f"falling back to {FALLBACK['provider']}/{FALLBACK['model']}")
     try:
         result = await asyncio.wait_for(
