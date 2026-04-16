@@ -973,7 +973,7 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
 
 
 # ── Agent runners ──────────────────────────────────────────────────────────────
-FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
+FALLBACK = {"provider": "gemini", "model": "gemini-1.5-flash-8b"}
 
 import time as _time
 
