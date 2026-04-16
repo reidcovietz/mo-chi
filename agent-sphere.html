@@ -953,7 +953,8 @@ const AGENT_BAR_COLOR = {
 };
 
 // Track actual tokens received per agent during the current run
-const agentTokenCounts = {};
+const agentTokenCounts  = {};
+const agentConfidence   = {};  // name → 0.25 | 0.5 | 1.0 (parsed from agent's own text)
 
 function trackToken(agent) {
   agentTokenCounts[agent] = (agentTokenCounts[agent] || 0) + 1;
@@ -961,6 +962,7 @@ function trackToken(agent) {
 
 function resetTokenCounts() {
   Object.keys(agentTokenCounts).forEach(k => delete agentTokenCounts[k]);
+  Object.keys(agentConfidence).forEach(k => delete agentConfidence[k]);
 }
 
 function renderNNReadout(snapshot) {
