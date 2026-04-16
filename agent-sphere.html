@@ -1313,6 +1313,7 @@ function connectWS() {
         } else if (msg.layer === 1) {
           fadeNodes(msg.agent);
           activeAgents.delete(msg.agent);
+          if (msg.confidence !== undefined) agentConfidence[msg.agent] = msg.confidence;
           // Stamp timing + model onto the card header
           const ind = document.getElementById(`ind-${msg.agent}`);
           if (ind && msg.elapsed_ms) {
