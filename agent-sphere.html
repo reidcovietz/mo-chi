@@ -1367,7 +1367,10 @@ renderer.domElement.addEventListener('click', e => {
   const hits = raycaster.intersectObjects(allResponseMeshes.map(c => c.mesh));
   if (hits.length > 0) {
     const found = allResponseMeshes.find(c => c.mesh === hits[0].object);
-    if (found) showResultPanel(found.fullText, found.session);
+    if (found) {
+      showResultPanel(found.fullText, found.session);
+      if (found.tokenSnapshot) renderNNReadout(found.tokenSnapshot);
+    }
   }
 });
 
