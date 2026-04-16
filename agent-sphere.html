@@ -967,10 +967,14 @@ function resetTokenCounts() {
 }
 
 function renderNNReadout(snapshot) {
-  const agents = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
-  const counts = agents.map(name => ({ name, value: snapshot[name] || 0 }));
-  const activeCount = counts.filter(c => c.value > 0).length;
-  const totalTokens = counts.reduce((s, c) => s + c.value, 0);
+  const agents   = ['analytical','creative','critic','visionary','contrarian','reasoning','pragmatist'];
+  const tokens   = snapshot.tokens     || snapshot;  // backwards-compat with old plain snapshots
+  const conf     = snapshot.confidence || {};
+  const BIAS     = 0.1;
+
+  const counts   = agents.map(name => ({ name, tokens: tokens[name] || 0, w: conf[name] ?? 0.5 }));
+  const maxTok   = Math.max(...counts.map(c => c.tokens), 1);
+  const active   = counts.filter(c => c.tokens > 0);
 
   const panel = document.getElementById('nn-panel');
   const eqEl  = document.getElementById('nn-equation');
@@ -978,22 +982,26 @@ function renderNNReadout(snapshot) {
     if (c.id !== 'nn-panel-header' && c.id !== 'nn-equation') c.remove();
   });
 
-  counts.forEach(({ name, value }) => {
-    const sharePct = totalTokens > 0 ? (value / totalTokens * 100) : 0;
-    const color    = AGENT_BAR_COLOR[name] || '#888';
-    const failed   = value === 0;
-    const row      = document.createElement('div');
-    row.className  = 'nn-row';
-    row.innerHTML  = `
+  // ŷ = σ(Σ wᵢxᵢ + b)  — real weights from agent confidence, xᵢ normalized by max output
+  const z    = counts.reduce((sum, { tokens: t, w }) => sum + w * (t / maxTok), 0) + BIAS;
+  const yHat = 1 / (1 + Math.exp(-z));  // sigmoid
+
+  counts.forEach(({ name, tokens: t, w }) => {
+    const xi     = t / maxTok;                        // normalized input
+    const contrib = (w * xi).toFixed(3);              // wᵢxᵢ contribution
+    const color  = AGENT_BAR_COLOR[name] || '#888';
+    const failed = t === 0;
+    const wLabel = w === 1.0 ? 'H' : w === 0.25 ? 'L' : 'M';
+    const row    = document.createElement('div');
+    row.className = 'nn-row';
+    row.innerHTML = `
       <span class="nn-label" style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${name}${failed ? ' ✗' : ''}</span>
-      <span class="nn-val" style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${failed ? '—' : sharePct.toFixed(1) + '%'}</span>`;
+      <span class="nn-conf" style="color:${failed ? 'rgba(255,80,80,.25)' : color};opacity:.35">${failed ? '·' : wLabel}</span>
+      <span class="nn-val"  style="color:${failed ? 'rgba(255,80,80,.4)' : color}">${failed ? '—' : contrib}</span>`;
     panel.insertBefore(row, eqEl);
   });
 
-  // Linear regression output: ŷ = Σ(wᵢxᵢ) where wᵢ = 1/n, xᵢ = normalized token share
-  const w    = 1 / agents.length;
-  const yHat = counts.reduce((sum, { value }) => sum + w * (totalTokens > 0 ? value / totalTokens : 0), 0);
-  eqEl.textContent = `${activeCount}/${agents.length} agents · ŷ = Σ(wᵢxᵢ) = ${yHat.toFixed(4)}`;
+  eqEl.textContent = `${active.length}/${agents.length} · σ(Σwᵢxᵢ + ${BIAS}) = ${yHat.toFixed(4)}`;
   panel.classList.add('visible');
 }
 
