@@ -1356,10 +1356,34 @@ async def websocket_endpoint(ws: WebSocket):
     session_history: list[dict] = []
     brain_task = asyncio.create_task(_stream_brain_log(ws))
 
+    # Send model catalog + current config immediately on connect
+    await emit(ws, "models_catalog",
+               catalog=MODEL_CATALOG,
+               current=_current_config())
+
     try:
         while True:
             data = await ws.receive_text()
             msg = json.loads(data)
+
+            if msg.get("type") == "set_model":
+                agent_name = msg.get("agent", "")
+                provider   = msg.get("provider", "")
+                model      = msg.get("model", "")
+                if agent_name and provider and model:
+                    AGENT_MODEL_OVERRIDES[agent_name] = {"provider": provider, "model": model}
+                    print(f"[model] {agent_name} → {provider}/{model}")
+                    await emit(ws, "model_updated",
+                               agent=agent_name, provider=provider, model=model,
+                               current=_current_config())
+                continue
+
+            if msg.get("type") == "get_models":
+                await emit(ws, "models_catalog",
+                           catalog=MODEL_CATALOG,
+                           current=_current_config())
+                continue
+
             if msg.get("type") == "new_session":
                 session_history = []
                 print("[session] history cleared — new session started")
