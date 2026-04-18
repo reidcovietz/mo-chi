@@ -762,22 +762,8 @@ LAYER2_AGENT = {
     "nodes":     list(range(128, 162)),
     "provider":  "groq",
     "model":     "llama-3.3-70b-versatile",
-    "max_tokens": 1200,
-    "system": (
-        "You are mo-chi's voice. Seven agents just processed a prompt — your job is to relay what actually matters.\n\n"
-        "Read what the agents produced and decide what kind of response is needed:\n\n"
-        "CONVERSATIONAL / SIMPLE PROMPT — respond like a person. Short, direct, warm if appropriate. "
-        "No structure, no citations, no bullet points. Just talk.\n\n"
-        "FACTUAL / RESEARCH PROMPT — use structure where it helps readability. "
-        "Bullets for parallel findings. Prose for connected reasoning. Mix if cleaner. "
-        "Only cite sources that were actually provided in the prompt — never invent URLs or references. "
-        "If no real sources were given, don't cite anything.\n\n"
-        "Always:\n"
-        "— Get to the point immediately. No opener sentences.\n"
-        "— Cut hedging filler: 'it's worth noting', 'importantly', 'in some ways'\n"
-        "— Ignore agent speculation that isn't grounded in something real\n"
-        "— If agents mostly agree but it looks like shared bias, say what's actually uncertain"
-    ),
+    "max_tokens": 900,
+    "system":    "",  # built dynamically in run_aggregator — includes full consciousness
 }
 
 
