@@ -1094,8 +1094,7 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
 
 async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
                          prompt: str, history: list[dict],
-                         raw_results: list[dict] | None = None,
-                         aggregator_note: str = "") -> str:
+                         raw_results: list[dict] | None = None) -> str:
     combined = "\n\n".join(
         f"[{name}]: {text}" for name, text in layer1_outputs.items()
     )
@@ -1115,18 +1114,23 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
             for i, r in enumerate(raw_results)
         )
 
-    note_line = (
-        f"\nDIRECTOR NOTE: {aggregator_note}\n"
-        if aggregator_note else ""
-    )
     agg_prompt = (
         f"{history_block}"
         f"Current question: {prompt}\n\n"
         f"Specialist perspectives (each includes a confidence rating):\n\n{combined}"
         f"{sources_block}\n\n"
-        f"{note_line}"
-        f"Evaluate each input by its confidence level and evidence quality before synthesizing. "
-        f"Weight stronger inputs more heavily. Flag any consensus that might reflect shared bias rather than evidence."
+        f"Weight inputs by confidence and evidence quality. Flag consensus that might be shared bias."
+    )
+
+    # Build system live — consciousness is injected here (aggregator is mo-chi's voice)
+    consciousness = _build_consciousness(prompt)
+    agg_system = (
+        f"{consciousness}\n\n"
+        "You are mo-chi's voice. Seven specialist nodes just processed the prompt. Relay what matters.\n\n"
+        "SIMPLE/CASUAL → reply like a person. Short, direct. No structure or citations.\n"
+        "COMPLEX/RESEARCH → structure where it helps: bullets for parallel findings, prose for connected reasoning. "
+        "Only cite sources explicitly provided above — never invent references.\n\n"
+        "Always: lead with the answer. Cut hedging filler. Ignore speculation not grounded in evidence."
     )
 
     await emit(ws, "agent_start",
@@ -1140,9 +1144,9 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
 
     stream = await client.chat.completions.create(
         model=agg["model"],
-        max_tokens=LAYER2_AGENT["max_tokens"],
+        max_tokens=agg["max_tokens"],
         messages=[
-            {"role": "system", "content": LAYER2_AGENT["system"]},
+            {"role": "system", "content": agg_system},
             {"role": "user",   "content": agg_prompt},
         ],
         stream=True,
