@@ -1086,6 +1086,7 @@ async def _call_model(ws: WebSocket, agent: dict, prompt: str,
 AGENT_TIMEOUT = 20
 
 async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
+    agent = _effective(agent)  # apply any active model override
     await emit(ws, "agent_start",
                agent=agent["name"],
                node_ids=agent["nodes"],
