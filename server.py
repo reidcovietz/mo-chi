@@ -1216,8 +1216,6 @@ def _format_history(history: list[dict]) -> str:
 # ── MoA orchestrator ───────────────────────────────────────────────────────────
 async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
                   do_search: bool = True, intent: str = "direct"):
-    # ── Consciousness — universal, always full ──────────────────────────────────
-    consciousness = _build_consciousness(prompt)
     history_block = _format_history(history)
 
     # ── Layer 0: web research (search intent only) ─────────────────────────────
@@ -1236,55 +1234,31 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
     if memory_context:
         await emit(ws, "memory_loaded", count=memory_context.count("["))
 
-    # ── Build enriched prompt ──────────────────────────────────────────────────
-    parts = [consciousness, "---"]
+    # ── Build lean agent prompt (no consciousness — agents are specialist nodes) ─
+    parts = []
     if history_block:
         parts.append(history_block)
     if context:
-        parts.append(
-            f"LIVE WEB DATA ({len(raw_results)} sources scraped right now):\n\n{context}"
-        )
+        parts.append(f"WEB DATA ({len(raw_results)} sources):\n{context}")
     if memory_context:
         parts.append(memory_context)
-    parts.append(
-        f"---\nAnswer the following from your specialist perspective"
-        f"{', using the live data above (cite sources where relevant)' if context else ''}:\n\n{prompt}"
-    )
+    parts.append(f"---\nPROMPT: {prompt}")
     enriched = "\n\n".join(parts)
 
-    # ── PA Director: brief every agent with a specific angle ──────────────────
-    directives = await run_pa_director(ws, prompt, intent)
-    aggregator_note  = directives.get("aggregator_note", "")
-    response_mode    = directives.get("response_mode", "full")
-    quick            = response_mode == "quick"
-    print(f"[director] response_mode={response_mode}")
-
-    # ── Layer 1: all 7 proposers always run ────────────────────────────────────
+    # ── Layer 1: all 7 proposers fire simultaneously ───────────────────────────
     await emit(ws, "layer_start", layer=1,
                agents=[a["name"] for a in LAYER1_AGENTS])
 
-    tasks = []
-    for i, agent in enumerate(LAYER1_AGENTS):
-        brief = directives.get(agent["name"], "")
-        if brief:
-            agent_prompt = f"DIRECTOR BRIEF: {brief}\n\n{enriched}"
-        else:
-            agent_prompt = enriched
-        # Quick mode: shrink token budget so fast models don't ramble
-        if quick:
-            agent = {**agent, "max_tokens": min(agent["max_tokens"], 120)}
-        tasks.append(asyncio.create_task(run_proposer(ws, agent, agent_prompt)))
-        if i < len(LAYER1_AGENTS) - 1:
-            await asyncio.sleep(0.25)
+    tasks = [asyncio.create_task(run_proposer(ws, agent, enriched))
+             for agent in LAYER1_AGENTS]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     layer1_outputs = {}
     for agent, result in zip(LAYER1_AGENTS, results):
         if isinstance(result, Exception):
-            await emit(ws, "error", message=str(result))
             layer1_outputs[agent["name"]] = "[unavailable]"
         else:
-            layer1_outputs[agent["name"]] = result
+            layer1_outputs[agent["name"]] = result or "[unavailable]"
 
     await emit(ws, "layer_done", layer=1)
     await emit(ws, "layer_start", layer=2, agents=["aggregator"])
@@ -1292,7 +1266,7 @@ async def run_moa(ws: WebSocket, prompt: str, history: list[dict],
     try:
         final_text = await run_aggregator(
             ws, layer1_outputs, prompt, history,
-            raw_results=raw_results, aggregator_note=aggregator_note
+            raw_results=raw_results,
         )
     except Exception as e:
         await emit(ws, "error", message=str(e))
