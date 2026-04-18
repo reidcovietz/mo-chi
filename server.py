@@ -1069,19 +1069,20 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
             if attempt < 1:
                 await asyncio.sleep(0.5)
 
-    # Primary exhausted — fallback to gemini (avoids piling onto groq when it's rate-limited)
-    _log_brain("warn", agent["name"], f"falling back to {FALLBACK['provider']}/{FALLBACK['model']}")
+    # Primary exhausted — route to a different provider to avoid cascading rate-limits
+    fb = _fallback_for(agent["provider"])
+    _log_brain("warn", agent["name"], f"→ fallback {fb['provider']}/{fb['model']}")
     try:
         result = await asyncio.wait_for(
-            _call_model(ws, agent, prompt, FALLBACK["provider"], FALLBACK["model"]),
+            _call_model(ws, agent, prompt, fb["provider"], fb["model"]),
             timeout=AGENT_TIMEOUT,
         )
         elapsed = int((_time.monotonic() - t_start) * 1000)
         await emit(ws, "agent_complete", agent=agent["name"], layer=1,
-                   model=FALLBACK["model"], elapsed_ms=elapsed,
+                   model=fb["model"], elapsed_ms=elapsed,
                    tokens=len(result.split()), fallback=True,
                    confidence=_parse_confidence(result))
-        print(f"[agent] {agent['name']} ✓ fallback  {elapsed}ms")
+        print(f"[agent] {agent['name']} ✓ fallback {fb['provider']}  {elapsed}ms")
         return result
     except Exception as e:
         elapsed = int((_time.monotonic() - t_start) * 1000)
@@ -1089,7 +1090,7 @@ async def run_proposer(ws: WebSocket, agent: dict, prompt: str) -> str:
         await emit(ws, "agent_complete", agent=agent["name"], layer=1,
                    model="failed", elapsed_ms=elapsed, tokens=0)
         print(f"[agent] {agent['name']} ✗ failed completely ({elapsed}ms)")
-        raise Exception(f"{agent['name']} failed (primary + fallback): {e}") from e
+        return "[unavailable]"  # don't raise — one failed agent shouldn't kill the whole run
 
 
 async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
