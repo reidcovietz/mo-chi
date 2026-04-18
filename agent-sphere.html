@@ -1491,6 +1491,14 @@ function connectWS() {
         setTimeout(() => showResultPanel(msg.full_text, curSession), 600);
         break;
 
+      case 'models_catalog':
+        _applyModelCatalog(msg.catalog, msg.current);
+        break;
+
+      case 'model_updated':
+        _applyModelCatalog(_modelCatalog, msg.current);
+        break;
+
       case 'brain_debug':
         _brainLog(msg.action, msg.file, msg.detail);
         break;
