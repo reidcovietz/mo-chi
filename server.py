@@ -611,6 +611,62 @@ async def memory_store(prompt: str, response: str):
         print(f"[memory] store error: {e}")
 
 
+# ── Model catalog (available swap-ins per provider) ────────────────────────────
+MODEL_CATALOG = {
+    "groq": [
+        {"model": "llama-3.1-8b-instant",          "label": "Llama 3.1 8B (fast)"},
+        {"model": "llama-3.3-70b-versatile",        "label": "Llama 3.3 70B"},
+        {"model": "llama-3.2-3b-preview",           "label": "Llama 3.2 3B (tiny)"},
+        {"model": "llama-3.2-11b-vision-preview",   "label": "Llama 3.2 11B"},
+        {"model": "gemma2-9b-it",                   "label": "Gemma 2 9B"},
+        {"model": "mixtral-8x7b-32768",             "label": "Mixtral 8x7B"},
+        {"model": "deepseek-r1-distill-llama-70b",  "label": "DeepSeek R1 70B"},
+    ],
+    "gemini": [
+        {"model": "gemini-1.5-flash-8b",            "label": "Gemini 1.5 Flash 8B"},
+        {"model": "gemini-1.5-flash",               "label": "Gemini 1.5 Flash"},
+        {"model": "gemini-2.0-flash-exp",           "label": "Gemini 2.0 Flash"},
+        {"model": "gemini-1.5-pro",                 "label": "Gemini 1.5 Pro"},
+    ],
+    "openrouter": [
+        {"model": "meta-llama/llama-3.1-8b-instruct:free",       "label": "Llama 3.1 8B (free)"},
+        {"model": "mistralai/mistral-7b-instruct:free",           "label": "Mistral 7B (free)"},
+        {"model": "google/gemma-2-9b-it:free",                    "label": "Gemma 2 9B (free)"},
+        {"model": "microsoft/phi-3-mini-128k-instruct:free",      "label": "Phi-3 Mini (free)"},
+        {"model": "openchat/openchat-7b:free",                    "label": "OpenChat 7B (free)"},
+        {"model": "nousresearch/nous-capybara-7b:free",           "label": "Capybara 7B (free)"},
+    ],
+}
+
+# Per-agent model overrides — set via "set_model" WS message, persist for session
+AGENT_MODEL_OVERRIDES: dict[str, dict] = {}
+
+
+def _effective(agent: dict) -> dict:
+    """Return agent dict with any active model override applied."""
+    ov = AGENT_MODEL_OVERRIDES.get(agent["name"])
+    if ov:
+        return {**agent, "provider": ov["provider"], "model": ov["model"]}
+    return agent
+
+
+def _current_config() -> dict:
+    """Return current provider/model for every agent (defaults + overrides)."""
+    result = {}
+    for a in LAYER1_AGENTS:
+        ov = AGENT_MODEL_OVERRIDES.get(a["name"])
+        result[a["name"]] = {
+            "provider": ov["provider"] if ov else a["provider"],
+            "model":    ov["model"]    if ov else a["model"],
+        }
+    ov = AGENT_MODEL_OVERRIDES.get("aggregator")
+    result["aggregator"] = {
+        "provider": ov["provider"] if ov else LAYER2_AGENT["provider"],
+        "model":    ov["model"]    if ov else LAYER2_AGENT["model"],
+    }
+    return result
+
+
 # ── Provider clients (all OpenAI-compatible) ───────────────────────────────────
 CLIENTS = {
     "groq": AsyncOpenAI(
