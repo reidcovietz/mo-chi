@@ -1649,7 +1649,9 @@ function animate() {
     nodesDirtyThisFrame = true;
   });
 
-  if (nodesDirtyThisFrame || edgesDirty) {
+  // Only update edges on explicit events (agent start/stop), not on every glow frame.
+  // nodesDirtyThisFrame drives node emissive only — edges are event-driven.
+  if (edgesDirty) {
     updateEdges();
     edgesDirty = false;
   }
