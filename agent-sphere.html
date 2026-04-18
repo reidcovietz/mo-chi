@@ -1283,6 +1283,23 @@ function archiveSession() {
     const s = curSession;
     archivedSessions.push(s);
     setSessionBrightness(s, _dimFactor(s), 900);
+    // Prune oldest session once we exceed 3 — prevents 3D object accumulation
+    while (archivedSessions.length > 3) {
+      const old = archivedSessions.shift();
+      old.group.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material)  obj.material.dispose();
+      });
+      scene.remove(old.group);
+      if (old.connLine) {
+        if (old.connLine.geometry) old.connLine.geometry.dispose();
+        if (old.connLine.material)  old.connLine.material.dispose();
+        scene.remove(old.connLine);
+      }
+      for (let i = allResponseMeshes.length - 1; i >= 0; i--) {
+        if (allResponseMeshes[i].session === old) allResponseMeshes.splice(i, 1);
+      }
+    }
   }
   curSession = null;
   // Tell server to reset session history — new session starts fresh
