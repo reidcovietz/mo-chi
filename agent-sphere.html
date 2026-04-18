@@ -1307,6 +1307,91 @@ function clearChain() {
   allResponseMeshes.length = 0;
 }
 
+// ── Model picker ──────────────────────────────────────────────────────────────
+let _modelCatalog    = {};   // provider → [{model, label}]
+let _currentModels   = {};   // agent → {provider, model}
+let _pickerAgent     = null; // which agent the picker is open for
+
+const _picker     = document.getElementById('model-picker');
+const _pickerHead = document.getElementById('model-picker-agent');
+const _pickerList = document.getElementById('model-picker-list');
+
+// Short label for the sidebar card (trims org prefix and :free suffix)
+function _shortLabel(model) {
+  return model.replace(/^[^/]+\//, '').replace(/:free$/, '');
+}
+
+function _applyModelCatalog(catalog, current) {
+  _modelCatalog  = catalog  || {};
+  _currentModels = current  || {};
+  // Update all card labels
+  Object.entries(_currentModels).forEach(([agent, cfg]) => {
+    const labelEl = document.querySelector(`.prop-${agent} .prop-label`);
+    if (labelEl) {
+      const base = agent.charAt(0).toUpperCase() + agent.slice(1);
+      labelEl.textContent = `${base} · ${_shortLabel(cfg.model)}`;
+    }
+  });
+}
+
+function _openPicker(agentName, anchorEl) {
+  _pickerAgent = agentName;
+  _pickerHead.textContent = agentName;
+  _pickerList.innerHTML   = '';
+
+  const cur = _currentModels[agentName] || {};
+
+  Object.entries(_modelCatalog).forEach(([provider, models]) => {
+    const provDiv = document.createElement('div');
+    provDiv.className   = 'mp-provider';
+    provDiv.textContent = provider;
+    _pickerList.appendChild(provDiv);
+
+    models.forEach(({ model, label }) => {
+      const row = document.createElement('div');
+      row.className = 'mp-model' + (cur.model === model && cur.provider === provider ? ' active' : '');
+      row.textContent = label;
+      row.addEventListener('click', () => {
+        if (wsConnected && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'set_model', agent: agentName, provider, model }));
+        }
+        _closePicker();
+      });
+      _pickerList.appendChild(row);
+    });
+  });
+
+  // Position near the anchor element
+  const rect = anchorEl.getBoundingClientRect();
+  _picker.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+  _picker.style.top  = (rect.bottom + 4) + 'px';
+  _picker.classList.add('open');
+}
+
+function _closePicker() {
+  _picker.classList.remove('open');
+  _pickerAgent = null;
+}
+
+document.getElementById('model-picker-close').addEventListener('click', _closePicker);
+document.addEventListener('click', e => {
+  if (!_picker.contains(e.target) && !e.target.closest('.prop-header')) _closePicker();
+});
+
+// Wire up each prop-card header to open the picker
+[
+  'analytical','creative','critic','visionary',
+  'contrarian','reasoning','pragmatist',
+].forEach(agent => {
+  const header = document.querySelector(`.prop-${agent} .prop-header`);
+  if (!header) return;
+  header.addEventListener('click', e => {
+    e.stopPropagation();
+    if (_pickerAgent === agent) { _closePicker(); return; }
+    _openPicker(agent, header);
+  });
+});
+
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 let ws = null, wsConnected = false;
 
