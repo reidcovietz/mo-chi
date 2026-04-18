@@ -1186,11 +1186,12 @@ async def run_aggregator(ws: WebSocket, layer1_outputs: dict,
                node_ids=LAYER2_AGENT["nodes"],
                layer=2)
 
-    client = CLIENTS[LAYER2_AGENT["provider"]]
+    agg = _effective(LAYER2_AGENT)
+    client = CLIENTS[agg["provider"]]
     full_text = []
 
     stream = await client.chat.completions.create(
-        model=LAYER2_AGENT["model"],
+        model=agg["model"],
         max_tokens=LAYER2_AGENT["max_tokens"],
         messages=[
             {"role": "system", "content": LAYER2_AGENT["system"]},
