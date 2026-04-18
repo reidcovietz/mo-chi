@@ -973,7 +973,14 @@ async def web_research(query: str) -> tuple[str, list[dict]]:
 
 
 # ── Agent runners ──────────────────────────────────────────────────────────────
-FALLBACK = {"provider": "groq", "model": "llama-3.1-8b-instant"}
+# Fallback routes to a different provider so rate-limit on primary doesn't cascade
+_FALLBACKS = {
+    "groq":      {"provider": "gemini",     "model": "gemini-1.5-flash-8b"},
+    "gemini":    {"provider": "groq",       "model": "llama-3.1-8b-instant"},
+    "openrouter":{"provider": "groq",       "model": "llama-3.1-8b-instant"},
+}
+def _fallback_for(provider: str) -> dict:
+    return _FALLBACKS.get(provider, {"provider": "groq", "model": "llama-3.1-8b-instant"})
 
 
 def _parse_confidence(text: str) -> float:
