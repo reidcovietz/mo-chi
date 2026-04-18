@@ -1048,10 +1048,7 @@ import time as _time
 async def _call_model(ws: WebSocket, agent: dict, prompt: str,
                       provider: str, model: str) -> str:
     client = CLIENTS[provider]
-    soul, _ = _load_identity()
-    soul_lines = [l for l in soul.splitlines() if l.strip()]
-    soul_brief = " ".join(soul_lines[:3])
-    system = f"[You are a specialist node in mo-chi's neural network. {soul_brief}]\n\n{agent['system']}"
+    system = agent["system"]
     full_text = []
     t0 = _time.monotonic()
     first_token = False
