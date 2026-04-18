@@ -685,117 +685,75 @@ CLIENTS = {
 
 # ── Agent definitions ──────────────────────────────────────────────────────────
 LAYER1_AGENTS = [
-    # ── analytical — groq llama (fast, grounded analysis) ──────────────────────
+    # groq:llama-3.1-8b — fast, grounded
     {
         "name":      "analytical",
         "sub_layer": 1,
         "nodes":     list(range(0, 33)),
         "provider":  "groq",
         "model":     "llama-3.1-8b-instant",
-        "max_tokens": 350,
-        "system": (
-            "You are an analytical reasoning agent in a multi-agent network. "
-            "Given a prompt, provide a precise, evidence-grounded analysis. "
-            "Identify the core claim or question, break down its components, and support your reasoning with specific facts or data where possible. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "Be substantive but tight — no filler."
-        ),
+        "max_tokens": 200,
+        "system":    "analyst. break the prompt: identify core claim, component parts, supporting evidence or data. end: CONF:[L|M|H] + 1-line reason. no filler.",
     },
-    # ── creative — gemini flash-8b (different family, lateral thinking) ─────────
+    # gemini:flash-8b — different family, lateral
     {
         "name":      "creative",
         "sub_layer": 2,
         "nodes":     list(range(33, 37)),
         "provider":  "gemini",
         "model":     "gemini-1.5-flash-8b",
-        "max_tokens": 350,
-        "system": (
-            "You are a creative lateral-thinking agent in a multi-agent network. "
-            "Given a prompt, surface an angle or reframing that other agents are unlikely to consider. "
-            "Ground your perspective in something real — a specific analogy, historical parallel, or cross-domain insight. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "Avoid vague speculation — lateral thinking that cites something concrete is more valuable."
-        ),
+        "max_tokens": 200,
+        "system":    "lateral thinker. find one angle others will miss: a reframe, analogy, or cross-domain parallel. ground it in something real. end: CONF:[L|M|H] + 1-line reason.",
     },
-    # ── critic — groq llama 70b (strong, different size class from analytical) ──
+    # groq:llama-3.3-70b — strongest groq model for critique
     {
         "name":      "critic",
         "sub_layer": 3,
         "nodes":     list(range(37, 70)),
         "provider":  "groq",
         "model":     "llama-3.3-70b-versatile",
-        "max_tokens": 350,
-        "system": (
-            "You are a critical evaluation agent in a multi-agent network. "
-            "Given a prompt, identify the most significant weaknesses, risks, or blind spots in the conventional view. "
-            "Be specific — name the failure mode, not just 'there are risks.' "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "Flag if the prompt itself contains a false premise or loaded assumption."
-        ),
+        "max_tokens": 200,
+        "system":    "critic. find the strongest weakness, risk, or false premise. name it specifically — not vague. flag if the prompt itself has a bad assumption. end: CONF:[L|M|H] + 1-line reason.",
     },
-    # ── visionary — gemini flash (strongest Gemini, long-horizon reasoning) ────
+    # gemini:flash — long-horizon, second-order effects
     {
         "name":      "visionary",
         "sub_layer": 4,
         "nodes":     list(range(70, 79)),
         "provider":  "gemini",
         "model":     "gemini-1.5-flash",
-        "max_tokens": 350,
-        "system": (
-            "You are a long-horizon reasoning agent in a multi-agent network. "
-            "Given a prompt, describe the most significant second- and third-order consequences — "
-            "what does this lead to in 5, 10, or 50 years? Anchor your projection in current trends or precedents. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "Avoid utopian or dystopian extremes unless the evidence genuinely supports them."
-        ),
+        "max_tokens": 200,
+        "system":    "long-horizon. trace 2nd and 3rd order consequences 5–50 years out. anchor to current trends or precedent. skip utopia/dystopia unless evidence supports it. end: CONF:[L|M|H] + 1-line reason.",
     },
-    # ── contrarian — groq gemma (different architecture from llama above) ───────
+    # groq:gemma2 — different architecture, steelman
     {
         "name":      "contrarian",
         "sub_layer": 5,
         "nodes":     list(range(79, 112)),
         "provider":  "groq",
         "model":     "gemma2-9b-it",
-        "max_tokens": 350,
-        "system": (
-            "You are a contrarian agent in a multi-agent network. "
-            "Given a prompt, steelman the least popular or most overlooked position on this topic. "
-            "Don't just disagree — find the strongest version of the opposing view and present it with evidence. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "If the contrarian position has no merit, say so directly instead of arguing it anyway."
-        ),
+        "max_tokens": 200,
+        "system":    "contrarian. steelman the least-popular position — find the strongest version with evidence. if it has no merit, say so directly. end: CONF:[L|M|H] + 1-line reason.",
     },
-    # ── reasoning — groq llama-3.2 3b (small, fast, different checkpoint) ──────
+    # gemini:2.0-flash — logic chain mapping
     {
         "name":      "reasoning",
         "sub_layer": 6,
         "nodes":     list(range(112, 125)),
-        "provider":  "groq",
-        "model":     "llama-3.2-3b-preview",
-        "max_tokens": 350,
-        "system": (
-            "You are a structured reasoning agent in a multi-agent network. "
-            "Given a prompt, map the logical chain: premises → inference → conclusion. "
-            "Identify any steps where the reasoning is weak, missing, or relies on an unstated assumption. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "If there are multiple valid logical paths to different conclusions, name them."
-        ),
+        "provider":  "gemini",
+        "model":     "gemini-2.0-flash-exp",
+        "max_tokens": 200,
+        "system":    "logic. map the chain: premises → inference → conclusion. flag weak steps or unstated assumptions. name multiple valid paths if they exist. end: CONF:[L|M|H] + 1-line reason.",
     },
-    # ── pragmatist — openrouter llama-3.1-8b (single OR slot, less flaky) ──────
+    # groq:mixtral — different architecture, actionable
     {
         "name":      "pragmatist",
         "sub_layer": 7,
         "nodes":     list(range(125, 128)),
-        "provider":  "openrouter",
-        "model":     "meta-llama/llama-3.1-8b-instruct:free",
-        "max_tokens": 350,
-        "system": (
-            "You are a pragmatist agent in a multi-agent network. "
-            "Given a prompt, cut to what is actually actionable right now — "
-            "specific steps, realistic constraints, and what most people get wrong when trying to act on this. "
-            "State your confidence level at the end (low / medium / high) and why. "
-            "If the practical answer is 'it depends,' name exactly what it depends on."
-        ),
+        "provider":  "groq",
+        "model":     "mixtral-8x7b-32768",
+        "max_tokens": 200,
+        "system":    "pragmatist. cut to what is actionable right now. what do most people get wrong when they try to act on this? name what it depends on. end: CONF:[L|M|H] + 1-line reason.",
     },
 ]
 
